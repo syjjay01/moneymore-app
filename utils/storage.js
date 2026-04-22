@@ -4,7 +4,7 @@ const STORAGE_KEYS = {
   USER_DATA_PREFIX: "data_"
 }
 
-const THEME_MODES = ["light", "dark", "system"]
+const THEME_MODES = ["fresh", "ocean", "night"]
 const FONT_SIZE_LEVELS = ["small", "medium", "large"]
 
 export function getStorageSync(key) {
@@ -121,7 +121,7 @@ export function createDefaultUserData(username) {
     transactions: [],
     settings: {
       monthlyBudget: 5000,
-      theme: "system",
+      theme: "fresh",
       fontSize: "medium"
     },
     createdAt: Date.now(),
@@ -130,7 +130,7 @@ export function createDefaultUserData(username) {
 }
 
 function normalizeTheme(theme) {
-  return THEME_MODES.includes(theme) ? theme : "system"
+  return THEME_MODES.includes(theme) ? theme : "fresh"
 }
 
 function normalizeFontSize(fontSize) {

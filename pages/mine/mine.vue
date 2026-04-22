@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page">
     <view class="hero-card">
       <text class="eyebrow">当前账号</text>
@@ -53,11 +53,19 @@
         <view class="nav-item" @click="goTo('/pages/settings/appearance')">
           <view>
             <text class="nav-title">外观设置</text>
-            <text class="nav-desc">切换浅色/深色/跟随系统并调整字体大小</text>
+            <text class="nav-desc">切换主题风格并调整字体大小</text>
           </view>
           <text class="nav-arrow">›</text>
         </view>
       </view>
+    </view>
+
+    <view class="section-card">
+      <view class="section-head">
+        <text class="section-title">账号安全</text>
+        <text class="section-desc">密码修改采用弹窗填写，避免页面过长。</text>
+      </view>
+      <button class="primary-btn" @click="openPasswordModal">修改密码</button>
     </view>
 
     <view class="section-card">
@@ -72,46 +80,51 @@
       </view>
     </view>
 
-    <view class="section-card">
-      <view class="section-head">
-        <text class="section-title">修改密码</text>
-        <text class="section-desc">修改前需要验证旧密码。</text>
-      </view>
+    <view v-if="showPasswordModal" class="modal-mask" @click="closePasswordModal">
+      <view class="modal-card" @click.stop>
+        <view class="modal-head">
+          <text class="modal-title">修改密码</text>
+          <text class="modal-close" @click="closePasswordModal">×</text>
+        </view>
 
-      <view class="field">
-        <text class="label">旧密码</text>
-        <input
-          v-model="passwordForm.oldPassword"
-          class="input"
-          type="password"
-          maxlength="20"
-          placeholder="请输入当前密码"
-        />
-      </view>
+        <view class="field">
+          <text class="label">旧密码</text>
+          <input
+            v-model="passwordForm.oldPassword"
+            class="input"
+            type="password"
+            maxlength="20"
+            placeholder="请输入当前密码"
+          />
+        </view>
 
-      <view class="field">
-        <text class="label">新密码</text>
-        <input
-          v-model="passwordForm.newPassword"
-          class="input"
-          type="password"
-          maxlength="20"
-          placeholder="请输入6-20位新密码"
-        />
-      </view>
+        <view class="field">
+          <text class="label">新密码</text>
+          <input
+            v-model="passwordForm.newPassword"
+            class="input"
+            type="password"
+            maxlength="20"
+            placeholder="请输入6-20位新密码"
+          />
+        </view>
 
-      <view class="field">
-        <text class="label">确认新密码</text>
-        <input
-          v-model="passwordForm.confirmPassword"
-          class="input"
-          type="password"
-          maxlength="20"
-          placeholder="请再次输入新密码"
-        />
-      </view>
+        <view class="field">
+          <text class="label">确认新密码</text>
+          <input
+            v-model="passwordForm.confirmPassword"
+            class="input"
+            type="password"
+            maxlength="20"
+            placeholder="请再次输入新密码"
+          />
+        </view>
 
-      <button class="primary-btn" :loading="submitting" @click="handleChangePassword">确认修改</button>
+        <view class="modal-actions">
+          <button class="outline-btn" @click="closePasswordModal">取消</button>
+          <button class="primary-btn" :loading="submitting" @click="handleChangePassword">确认修改</button>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -132,6 +145,7 @@ import {
 
 const currentUser = ref("")
 const submitting = ref(false)
+const showPasswordModal = ref(false)
 const passwordForm = reactive({
   oldPassword: "",
   newPassword: "",
@@ -164,6 +178,15 @@ function goTo(url) {
   uni.navigateTo({
     url
   })
+}
+
+function openPasswordModal() {
+  showPasswordModal.value = true
+}
+
+function closePasswordModal() {
+  showPasswordModal.value = false
+  resetPasswordForm()
 }
 
 onShow(() => {
@@ -262,7 +285,7 @@ function handleChangePassword() {
     return
   }
 
-  resetPasswordForm()
+  closePasswordModal()
   uni.showToast({
     title: "密码已更新",
     icon: "success"
@@ -326,15 +349,13 @@ async function handleImportBackup() {
 .page {
   min-height: 100vh;
   padding: 24rpx;
-  background:
-    radial-gradient(circle at top left, rgba(43, 122, 75, 0.14), transparent 30%),
-    linear-gradient(180deg, #f3f8f4 0%, #f8f9fa 38%, #f8f9fa 100%);
 }
 
 .hero-card,
-.section-card {
+.section-card,
+.modal-card {
   border-radius: 28rpx;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--bg-card);
   box-shadow: 0 20rpx 50rpx rgba(31, 41, 51, 0.08);
 }
 
@@ -380,7 +401,7 @@ async function handleImportBackup() {
 }
 
 .outline-btn {
-  background: #fff;
+  background: transparent;
   color: var(--color-primary);
   border: 2rpx solid rgba(43, 122, 75, 0.18);
 }
@@ -427,7 +448,7 @@ async function handleImportBackup() {
   gap: 18rpx;
   padding: 24rpx 22rpx;
   border-radius: 22rpx;
-  background: #f6faf7;
+  background: rgba(31, 122, 77, 0.06);
 }
 
 .nav-title {
@@ -449,13 +470,54 @@ async function handleImportBackup() {
   line-height: 1;
 }
 
-.field + .field {
-  margin-top: 22rpx;
+.primary-btn {
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.38);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 24rpx;
+  z-index: 30;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 720rpx;
+  padding: 28rpx;
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modal-close {
+  font-size: 42rpx;
+  color: var(--text-secondary);
+}
+
+.field {
+  margin-top: 18rpx;
 }
 
 .label {
   display: block;
-  margin-bottom: 12rpx;
+  margin-bottom: 10rpx;
   font-size: 26rpx;
   color: var(--text-secondary);
 }
@@ -470,11 +532,13 @@ async function handleImportBackup() {
   color: var(--text-primary);
 }
 
-.primary-btn {
-  margin-top: 28rpx;
-  border-radius: 20rpx;
-  font-size: 30rpx;
-  background: var(--color-primary);
-  color: #fff;
+.modal-actions {
+  margin-top: 24rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.modal-actions button {
+  flex: 1;
 }
 </style>

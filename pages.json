@@ -7,12 +7,6 @@
       }
     },
     {
-      "path": "pages/transactions/transactions",
-      "style": {
-        "navigationBarTitleText": "流水"
-      }
-    },
-    {
       "path": "pages/statistics/statistics",
       "style": {
         "navigationBarTitleText": "统计"
@@ -95,12 +89,6 @@
         "text": "记账",
         "iconPath": "static/tabbar/record.png",
         "selectedIconPath": "static/tabbar/record-active.png"
-      },
-      {
-        "pagePath": "pages/transactions/transactions",
-        "text": "流水",
-        "iconPath": "static/tabbar/transactions.png",
-        "selectedIconPath": "static/tabbar/transactions-active.png"
       },
       {
         "pagePath": "pages/statistics/statistics",

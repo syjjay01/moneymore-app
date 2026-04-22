@@ -3,7 +3,7 @@
     <view class="hero-card">
       <text class="hero-kicker">固定支出管理</text>
       <text class="hero-title">管理每月固定项目</text>
-      <text class="hero-desc">默认 6 项可编辑不可删除，其余自定义项目可自由增删改。</text>
+      <text class="hero-desc">支持新增、编辑、删除固定支出项，历史流水会保留。</text>
     </view>
 
     <view class="form-card">
@@ -46,11 +46,7 @@
           </view>
           <view class="item-actions">
             <text class="link-btn" @click="startEdit(item)">编辑</text>
-            <text
-              class="danger-link"
-              :class="{ disabled: item.isSystem }"
-              @click="removeItem(item)"
-            >
+            <text class="danger-link" @click="removeItem(item)">
               删除
             </text>
           </view>
@@ -196,11 +192,6 @@ function startEdit(item) {
 }
 
 function removeItem(item) {
-  if (item.isSystem) {
-    showToast("默认固定支出项不可删除")
-    return
-  }
-
   uni.showModal({
     title: "删除固定支出项",
     content: `确认删除“${item.name}”吗？历史流水记录不会自动删除。`,

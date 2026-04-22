@@ -1,37 +1,53 @@
 ﻿:root,
-.theme-light {
-  --color-primary: #2b7a4b;
+.theme-fresh {
+  --color-primary: #1f7a4d;
   --color-danger: #e74c3c;
   --color-white: #ffffff;
 
-  --text-primary: #1f2933;
-  --text-secondary: #6b7280;
+  --text-primary: #17324a;
+  --text-secondary: #63788c;
 
-  --bg-page: #f8f9fa;
+  --bg-page: #f6fbf8;
   --bg-card: #ffffff;
+  --app-page-gradient: radial-gradient(circle at 15% 8%, rgba(31, 122, 77, 0.22), transparent 32%), linear-gradient(170deg, #f3fcf7 0%, #eef6ff 48%, #f8fafc 100%);
 
   --font-family-base: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-size-multiplier: 1;
+  --app-scale: 1;
   --font-size-base: calc(28rpx * var(--font-size-multiplier));
 }
 
-.theme-dark {
-  /* 深色模式色值：可按产品文档进一步替换为最终规范值 */
-  --color-primary: #5bb37b;
-  --color-danger: #ff6b6b;
-  --color-white: #0f1720;
+.theme-ocean {
+  --color-primary: #1f4f9b;
+  --color-danger: #d94848;
+  --color-white: #ffffff;
 
-  --text-primary: #e6edf3;
-  --text-secondary: #9ba7b4;
+  --text-primary: #162844;
+  --text-secondary: #5d708b;
 
-  --bg-page: #0f1720;
-  --bg-card: #1a2430;
+  --bg-page: #f3f8ff;
+  --bg-card: #ffffff;
+  --app-page-gradient: radial-gradient(circle at 15% 8%, rgba(31, 79, 155, 0.22), transparent 32%), linear-gradient(170deg, #eef5ff 0%, #f4f9ff 48%, #fbfdff 100%);
 }
 
-[data-theme="dark"] {
+.theme-night {
+  --color-primary: #66d8a8;
+  --color-danger: #ff7272;
+  --color-white: #0f1628;
+
+  --text-primary: #eaf2ff;
+  --text-secondary: #9fb0cb;
+
+  --bg-page: #0f1628;
+  --bg-card: #1a243c;
+  --app-page-gradient: radial-gradient(circle at 15% 8%, rgba(102, 216, 168, 0.2), transparent 34%), linear-gradient(170deg, #0f1628 0%, #131e36 52%, #101a30 100%);
+}
+
+[data-theme="night"] {
   color-scheme: dark;
 }
 
-[data-theme="light"] {
+[data-theme="fresh"],
+[data-theme="ocean"] {
   color-scheme: light;
 }

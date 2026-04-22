@@ -3,7 +3,7 @@
     <view class="section-card">
       <view class="section-head">
         <text class="section-title">主题模式</text>
-        <text class="section-desc">可选择浅色、深色或跟随系统</text>
+        <text class="section-desc">可选择三种视觉风格主题并实时预览</text>
       </view>
 
       <radio-group @change="handleThemeChange">
@@ -54,14 +54,14 @@ import { getCurrentUser, getCurrentUserSettings } from "../../utils/storage"
 const { applyAppearance, saveAndApplyAppearance } = useAppearance()
 const saving = ref(false)
 const draft = reactive({
-  theme: "system",
+  theme: "fresh",
   fontSize: "medium"
 })
 
 const themeOptions = [
-  { value: "light", label: "浅色", desc: "始终使用浅色界面" },
-  { value: "dark", label: "深色", desc: "始终使用深色界面" },
-  { value: "system", label: "跟随系统", desc: "自动匹配系统外观" }
+  { value: "fresh", label: "清新绿", desc: "自然轻盈，适合日常高频记账" },
+  { value: "ocean", label: "海岸蓝", desc: "冷静专注，适合数据浏览与统计分析" },
+  { value: "night", label: "夜幕黑", desc: "低亮护眼，适合夜间使用场景" }
 ]
 
 const fontOptions = [
@@ -87,13 +87,13 @@ function syncFromStorage() {
   }
 
   const settings = getCurrentUserSettings()
-  draft.theme = settings.theme || "system"
+  draft.theme = settings.theme || "fresh"
   draft.fontSize = settings.fontSize || "medium"
   applyAppearance(draft.theme, draft.fontSize)
 }
 
 function handleThemeChange(event) {
-  draft.theme = event.detail.value || "system"
+  draft.theme = event.detail.value || "fresh"
   applyAppearance(draft.theme, draft.fontSize)
 }
 

@@ -3,12 +3,15 @@
     <view class="hero-card">
       <view class="month-switcher">
         <text class="switch-arrow" @click="changeMonth(-1)">‹</text>
-        <view class="month-center">
-          <text class="hero-kicker">月度统计</text>
-          <text class="hero-title">{{ monthLabel }}</text>
-        </view>
+        <picker mode="date" fields="month" :value="`${selectedMonth}-01`" class="month-picker" @change="handleMonthPick">
+          <view class="month-center">
+            <text class="hero-kicker">月度统计</text>
+            <text class="hero-title">{{ monthLabel }}</text>
+          </view>
+        </picker>
         <text class="switch-arrow" @click="changeMonth(1)">›</text>
       </view>
+      <button v-if="!isCurrentMonth" class="back-btn" size="mini" @click="backToCurrentMonth">回到当月</button>
       <text class="hero-desc">图表基于当前账号本地账本数据生成，切换月份会同步更新统计结果。</text>
     </view>
 
@@ -144,7 +147,7 @@ echarts.use([
 provideEcharts(echarts)
 
 const budgetStore = useBudgetStore()
-const TRANSACTION_FILTER_CACHE_KEY = "MM_TRANSACTION_FILTER_CACHE"
+const RECORD_FILTER_CACHE_KEY = "MM_RECORD_FILTER_CACHE"
 const currentUser = ref("")
 const selectedMonth = ref("")
 const transactions = ref([])
@@ -190,6 +193,7 @@ const monthLabel = computed(() => {
   const [year, month] = selectedMonth.value.split("-")
   return `${year}年${Number(month)}月`
 })
+const isCurrentMonth = computed(() => selectedMonth.value === getCurrentMonth())
 
 const monthlyTransactions = computed(() => {
   return transactions.value.filter((item) => String(item.date || "").slice(0, 7) === selectedMonth.value)
@@ -557,6 +561,18 @@ function changeMonth(offset) {
   selectedMonth.value = shiftMonth(selectedMonth.value, offset)
 }
 
+function handleMonthPick(event) {
+  const value = String(event.detail.value || "").slice(0, 7)
+  if (!value) {
+    return
+  }
+  selectedMonth.value = value
+}
+
+function backToCurrentMonth() {
+  selectedMonth.value = getCurrentMonth()
+}
+
 function loadStatisticsData() {
   currentUser.value = getCurrentUser() || ""
   if (!currentUser.value) {
@@ -603,8 +619,9 @@ function closeDetailPopup() {
 }
 
 function goToTransactionDetail(item) {
-  setStorageSync(TRANSACTION_FILTER_CACHE_KEY, {
+  setStorageSync(RECORD_FILTER_CACHE_KEY, {
     month: selectedMonth.value,
+    day: item?.date || `${selectedMonth.value}-01`,
     type: "expense",
     tagId: detailPopup.filter.tagId,
     tagName: detailPopup.filter.tagName,
@@ -613,7 +630,7 @@ function goToTransactionDetail(item) {
   })
   closeDetailPopup()
   uni.switchTab({
-    url: "/pages/transactions/transactions"
+    url: "/pages/record/record"
   })
 }
 
@@ -660,6 +677,10 @@ onShow(() => {
   text-align: center;
 }
 
+.month-picker {
+  flex: 1;
+}
+
 .switch-arrow {
   width: 64rpx;
   height: 64rpx;
@@ -700,6 +721,13 @@ onShow(() => {
   font-size: 25rpx;
   color: var(--text-secondary);
   line-height: 1.7;
+}
+
+.back-btn {
+  margin-top: 12rpx;
+  border-radius: 999rpx;
+  background: var(--color-primary);
+  color: #fff;
 }
 
 .summary-card,

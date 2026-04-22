@@ -62,6 +62,16 @@ page {
   line-height: 1.5;
 }
 
+/* #ifdef H5 */
+page {
+  zoom: var(--app-scale);
+}
+/* #endif */
+
+.page {
+  background: var(--app-page-gradient) !important;
+}
+
 view,
 text,
 button,

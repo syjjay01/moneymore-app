@@ -4,35 +4,20 @@ import { getCurrentUserSettings, saveCurrentUserSettings } from "../utils/storag
 const FONT_MULTIPLIER_MAP = {
   small: 0.9,
   medium: 1,
-  large: 1.1
+  large: 1.12
+}
+
+const THEME_NAV_MAP = {
+  fresh: { backgroundColor: "#1f7a4d", frontColor: "#ffffff" },
+  ocean: { backgroundColor: "#1f4f9b", frontColor: "#ffffff" },
+  night: { backgroundColor: "#121a2f", frontColor: "#ffffff" }
 }
 
 const appearanceState = reactive({
-  theme: "system",
-  resolvedTheme: "light",
+  theme: "fresh",
   fontSize: "medium",
   fontMultiplier: 1
 })
-
-let mediaQuery = null
-let mediaListener = null
-let uniThemeListenerRegistered = false
-
-function getSystemTheme() {
-  if (typeof window !== "undefined" && window.matchMedia) {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-  }
-
-  return "light"
-}
-
-function resolveTheme(theme) {
-  if (theme === "system") {
-    return getSystemTheme()
-  }
-
-  return theme === "dark" ? "dark" : "light"
-}
 
 function syncDocumentAppearance() {
   if (typeof document === "undefined") {
@@ -40,77 +25,49 @@ function syncDocumentAppearance() {
   }
 
   const root = document.documentElement
-  root.classList.remove("theme-light", "theme-dark")
-  root.classList.add(`theme-${appearanceState.resolvedTheme}`)
-  root.setAttribute("data-theme", appearanceState.resolvedTheme)
+  root.classList.remove("theme-fresh", "theme-ocean", "theme-night")
+  root.classList.add(`theme-${appearanceState.theme}`)
+  root.setAttribute("data-theme", appearanceState.theme)
   root.style.setProperty("--font-size-multiplier", String(appearanceState.fontMultiplier))
+  root.style.setProperty("--app-scale", String(appearanceState.fontMultiplier))
+}
+
+function syncNativeAppearance() {
+  if (typeof uni === "undefined") {
+    return
+  }
+
+  const nav = THEME_NAV_MAP[appearanceState.theme] || THEME_NAV_MAP.fresh
+
+  if (typeof uni.setNavigationBarColor === "function") {
+    uni.setNavigationBarColor({
+      frontColor: nav.frontColor,
+      backgroundColor: nav.backgroundColor
+    })
+  }
+
+  if (typeof uni.setTabBarStyle === "function") {
+    uni.setTabBarStyle({
+      backgroundColor: appearanceState.theme === "night" ? "#11182a" : "#ffffff",
+      color: appearanceState.theme === "night" ? "#94a3b8" : "#7a7e83",
+      selectedColor: appearanceState.theme === "night" ? "#66d8a8" : "#2b7a4b",
+      borderStyle: appearanceState.theme === "night" ? "white" : "black"
+    })
+  }
 }
 
 function updateAppearanceState(nextTheme, nextFontSize) {
-  appearanceState.theme = ["light", "dark", "system"].includes(nextTheme) ? nextTheme : "system"
+  appearanceState.theme = ["fresh", "ocean", "night"].includes(nextTheme) ? nextTheme : "fresh"
   appearanceState.fontSize = ["small", "medium", "large"].includes(nextFontSize) ? nextFontSize : "medium"
   appearanceState.fontMultiplier = FONT_MULTIPLIER_MAP[appearanceState.fontSize] || 1
-  appearanceState.resolvedTheme = resolveTheme(appearanceState.theme)
+
   syncDocumentAppearance()
-}
-
-function stopSystemThemeWatcher() {
-  if (!mediaQuery || !mediaListener) {
-    return
-  }
-
-  if (mediaQuery.removeEventListener) {
-    mediaQuery.removeEventListener("change", mediaListener)
-  } else if (mediaQuery.removeListener) {
-    mediaQuery.removeListener(mediaListener)
-  }
-
-  mediaQuery = null
-  mediaListener = null
-}
-
-function startSystemThemeWatcher() {
-  stopSystemThemeWatcher()
-
-  if (appearanceState.theme !== "system") {
-    return
-  }
-
-  if (typeof window === "undefined" || !window.matchMedia) {
-    if (
-      typeof uni !== "undefined" &&
-      typeof uni.onThemeChange === "function" &&
-      !uniThemeListenerRegistered
-    ) {
-      uni.onThemeChange(() => {
-        if (appearanceState.theme !== "system") {
-          return
-        }
-        appearanceState.resolvedTheme = resolveTheme("system")
-        syncDocumentAppearance()
-      })
-      uniThemeListenerRegistered = true
-    }
-    return
-  }
-
-  mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-  mediaListener = () => {
-    appearanceState.resolvedTheme = resolveTheme("system")
-    syncDocumentAppearance()
-  }
-
-  if (mediaQuery.addEventListener) {
-    mediaQuery.addEventListener("change", mediaListener)
-  } else if (mediaQuery.addListener) {
-    mediaQuery.addListener(mediaListener)
-  }
+  syncNativeAppearance()
 }
 
 export function loadAndApplyAppearance() {
   const settings = getCurrentUserSettings()
   updateAppearanceState(settings.theme, settings.fontSize)
-  startSystemThemeWatcher()
   return {
     ...appearanceState
   }
@@ -118,7 +75,6 @@ export function loadAndApplyAppearance() {
 
 export function applyAppearance(theme, fontSize) {
   updateAppearanceState(theme, fontSize)
-  startSystemThemeWatcher()
 }
 
 export function saveAndApplyAppearance(theme, fontSize) {
@@ -137,7 +93,6 @@ export function saveAndApplyAppearance(theme, fontSize) {
 export function useAppearance() {
   return {
     theme: computed(() => appearanceState.theme),
-    resolvedTheme: computed(() => appearanceState.resolvedTheme),
     fontSize: computed(() => appearanceState.fontSize),
     fontMultiplier: computed(() => appearanceState.fontMultiplier),
     loadAndApplyAppearance,

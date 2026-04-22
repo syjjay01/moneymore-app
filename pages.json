@@ -1,0 +1,119 @@
+﻿{
+  "pages": [
+    {
+      "path": "pages/record/record",
+      "style": {
+        "navigationBarTitleText": "记账"
+      }
+    },
+    {
+      "path": "pages/transactions/transactions",
+      "style": {
+        "navigationBarTitleText": "流水"
+      }
+    },
+    {
+      "path": "pages/statistics/statistics",
+      "style": {
+        "navigationBarTitleText": "统计"
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/login/register",
+      "style": {
+        "navigationBarTitleText": "注册"
+      }
+    },
+    {
+      "path": "pages/manage/income-items",
+      "style": {
+        "navigationBarTitleText": "管理收入项"
+      }
+    },
+    {
+      "path": "pages/manage/fixed-expense-items",
+      "style": {
+        "navigationBarTitleText": "管理固定支出"
+      }
+    },
+    {
+      "path": "pages/tag/tag-management",
+      "style": {
+        "navigationBarTitleText": "标签管理"
+      }
+    },
+    {
+      "path": "pages/income/income-management",
+      "style": {
+        "navigationBarTitleText": "收入项管理"
+      }
+    },
+    {
+      "path": "pages/fixed-expense/fixed-expense-management",
+      "style": {
+        "navigationBarTitleText": "固定支出管理"
+      }
+    },
+    {
+      "path": "pages/budget/budget-setting",
+      "style": {
+        "navigationBarTitleText": "预算设置"
+      }
+    },
+    {
+      "path": "pages/settings/appearance",
+      "style": {
+        "navigationBarTitleText": "外观设置"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#2B7A4B",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F8F9FA"
+  },
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#2B7A4B",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/record/record",
+        "text": "记账",
+        "iconPath": "static/tabbar/record.png",
+        "selectedIconPath": "static/tabbar/record-active.png"
+      },
+      {
+        "pagePath": "pages/transactions/transactions",
+        "text": "流水",
+        "iconPath": "static/tabbar/transactions.png",
+        "selectedIconPath": "static/tabbar/transactions-active.png"
+      },
+      {
+        "pagePath": "pages/statistics/statistics",
+        "text": "统计",
+        "iconPath": "static/tabbar/statistics.png",
+        "selectedIconPath": "static/tabbar/statistics-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "static/tabbar/mine.png",
+        "selectedIconPath": "static/tabbar/mine-active.png"
+      }
+    ]
+  }
+}

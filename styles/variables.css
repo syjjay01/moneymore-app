@@ -1,0 +1,37 @@
+﻿:root,
+.theme-light {
+  --color-primary: #2b7a4b;
+  --color-danger: #e74c3c;
+  --color-white: #ffffff;
+
+  --text-primary: #1f2933;
+  --text-secondary: #6b7280;
+
+  --bg-page: #f8f9fa;
+  --bg-card: #ffffff;
+
+  --font-family-base: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-size-multiplier: 1;
+  --font-size-base: calc(28rpx * var(--font-size-multiplier));
+}
+
+.theme-dark {
+  /* 深色模式色值：可按产品文档进一步替换为最终规范值 */
+  --color-primary: #5bb37b;
+  --color-danger: #ff6b6b;
+  --color-white: #0f1720;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #9ba7b4;
+
+  --bg-page: #0f1720;
+  --bg-card: #1a2430;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}

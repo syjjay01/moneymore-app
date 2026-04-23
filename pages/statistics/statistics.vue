@@ -11,7 +11,7 @@
         </picker>
         <text class="switch-arrow" @click="changeMonth(1)">›</text>
       </view>
-      <button v-if="!isCurrentMonth" class="back-btn" size="mini" @click="backToCurrentMonth">回到当月</button>
+      <view v-if="!isCurrentMonth" class="back-btn" @click="backToCurrentMonth">回到当月</view>
       <text class="hero-desc">图表基于当前账号本地账本数据生成，切换月份会同步更新统计结果。</text>
     </view>
 
@@ -441,8 +441,7 @@ const lineOption = computed(() => {
       left: 36,
       right: 16,
       top: 30,
-      bottom: 30,
-      containLabel: true
+      bottom: 44
     },
     xAxis: {
       type: "category",
@@ -503,8 +502,7 @@ const barOption = computed(() => {
       left: 30,
       right: 12,
       top: 28,
-      bottom: 24,
-      containLabel: true
+      bottom: 36
     },
     xAxis: {
       type: "category",
@@ -723,10 +721,19 @@ onShow(() => {
 }
 
 .back-btn {
-  margin-top: 12rpx;
+  margin: 12rpx auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 196rpx;
+  min-width: 0;
+  padding: 0 24rpx;
+  height: 56rpx;
+  line-height: 56rpx;
   border-radius: 999rpx;
   background: var(--color-primary);
   color: #fff;
+  white-space: nowrap !important;
 }
 
 .summary-card,

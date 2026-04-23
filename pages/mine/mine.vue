@@ -68,18 +68,6 @@
       <button class="primary-btn" @click="openPasswordModal">修改密码</button>
     </view>
 
-    <view class="section-card">
-      <view class="section-head">
-        <text class="section-title">数据备份与恢复</text>
-        <text class="section-desc">导入会覆盖当前设备所有账户与账本数据，请谨慎操作。</text>
-      </view>
-
-      <view class="action-row">
-        <button class="outline-btn" @click="handleExportBackup">导出备份</button>
-        <button class="danger-btn" @click="handleImportBackup">导入备份</button>
-      </view>
-    </view>
-
     <view v-if="showPasswordModal" class="modal-mask" @click="closePasswordModal">
       <view class="modal-card" @click.stop>
         <view class="modal-head">
@@ -132,7 +120,6 @@
 <script setup>
 import { reactive, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
-import { applyBackupData, exportBackupFile, pickAndParseBackup } from "../../utils/backup"
 import { createSaltedPassword, generateSalt, verifySaltedPassword } from "../../utils/md5"
 import {
   clearCurrentUser,
@@ -292,57 +279,6 @@ function handleChangePassword() {
   })
 }
 
-async function handleExportBackup() {
-  try {
-    const result = await exportBackupFile("1.0.0")
-    const modeMap = {
-      download: "浏览器下载",
-      saveFile: "保存到本地文件",
-      share: "系统分享"
-    }
-    uni.showToast({
-      title: `导出成功（${modeMap[result.mode] || "已生成"}）`,
-      icon: "none"
-    })
-  } catch (error) {
-    showToast(`导出失败：${error.message || "未知错误"}`)
-  }
-}
-
-async function handleImportBackup() {
-  try {
-    const parsed = await pickAndParseBackup()
-
-    uni.showModal({
-      title: "确认导入备份",
-      content: "导入后将覆盖当前设备所有账户和账本数据，是否继续？",
-      confirmColor: "#E74C3C",
-      success: ({ confirm }) => {
-        if (!confirm) {
-          return
-        }
-
-        try {
-          applyBackupData(parsed)
-          uni.showModal({
-            title: "导入成功",
-            content: "备份已恢复，建议重启 App 后重新登录以确保状态完全刷新。",
-            showCancel: false,
-            success: () => {
-              if (typeof plus !== "undefined" && plus.runtime) {
-                plus.runtime.restart()
-              }
-            }
-          })
-        } catch (error) {
-          showToast(`导入失败：${error.message || "未知错误"}`)
-        }
-      }
-    })
-  } catch (error) {
-    showToast(`读取备份失败：${error.message || "请选择有效 JSON 文件"}`)
-  }
-}
 </script>
 
 <style scoped>

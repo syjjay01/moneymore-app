@@ -22,7 +22,7 @@
         <text class="arrow" @click="changeMonth(1)">›</text>
       </view>
 
-      <button v-if="!isCurrentMonth" class="back-btn" size="mini" @click="backToCurrentMonth">回到当月</button>
+      <view v-if="!isCurrentMonth" class="back-btn" @click="backToCurrentMonth">回到当月</view>
     </view>
 
     <view class="tab-row">
@@ -40,7 +40,7 @@
     <view v-if="activeTab === 'daily'" class="card">
       <view class="card-head">
         <text class="card-title">日常支出</text>
-        <button class="mini-primary" size="mini" @click="openNewFlow">新支出</button>
+        <button v-if="canOperateMonth" class="mini-primary" size="mini" @click="openNewFlow">新支出</button>
       </view>
 
       <view class="day-tool-row">
@@ -99,7 +99,7 @@
     <view v-if="activeTab === 'fixed'" class="card">
       <view class="card-head">
         <text class="card-title">固定支出区块</text>
-        <view class="head-actions">
+        <view v-if="canOperateMonth" class="head-actions">
           <text class="manage-link" @click="goToManagePage('/pages/fixed-expense/fixed-expense-management')">管理</text>
           <text class="manage-link" @click="openAddItemModal('fixed')">新增项目</text>
         </view>
@@ -118,18 +118,18 @@
               @blur="handleAmountBlur(fixedExpenseAmounts, item.id)"
             />
           </view>
-          <text class="row-delete" @click="removeFixedExpenseItem(item)">删除</text>
+          <text v-if="canOperateMonth" class="row-delete" @click="removeFixedExpenseItem(item)">删除</text>
         </view>
       </view>
       <view v-else class="empty-box">暂无固定支出项。</view>
 
-      <button class="primary-btn" @click="saveFixedExpenseRecords">保存固定支出</button>
+      <button v-if="canOperateMonth" class="primary-btn" @click="saveFixedExpenseRecords">保存固定支出</button>
     </view>
 
     <view v-if="activeTab === 'income'" class="card">
       <view class="card-head">
         <text class="card-title">收入区块</text>
-        <view class="head-actions">
+        <view v-if="canOperateMonth" class="head-actions">
           <text class="manage-link" @click="goToManagePage('/pages/income/income-management')">管理</text>
           <text class="manage-link" @click="openAddItemModal('income')">新增项目</text>
         </view>
@@ -148,12 +148,12 @@
               @blur="handleAmountBlur(incomeAmounts, item.id)"
             />
           </view>
-          <text class="row-delete" @click="removeIncomeItem(item)">删除</text>
+          <text v-if="canOperateMonth" class="row-delete" @click="removeIncomeItem(item)">删除</text>
         </view>
       </view>
       <view v-else class="empty-box">暂无收入项。</view>
 
-      <button class="primary-btn" @click="saveIncomeRecords">保存收入</button>
+      <button v-if="canOperateMonth" class="primary-btn" @click="saveIncomeRecords">保存收入</button>
     </view>
 
     <view v-if="newFlow.visible" class="sheet-mask" @click="closeNewFlow">
@@ -332,6 +332,11 @@ const monthLabel = computed(() => {
 })
 
 const isCurrentMonth = computed(() => selectedMonth.value === getCurrentMonth())
+const isFutureMonth = computed(() => selectedMonth.value > getCurrentMonth())
+const canOperateMonth = computed(() => !isFutureMonth.value)
+const shouldInitMonthDefaults = computed(() => {
+  return selectedMonth.value === getCurrentMonth() && getCurrentDate().endsWith("-01")
+})
 const isCurrentDay = computed(() => selectedDay.value === getCurrentDate())
 
 const monthDays = computed(() => {
@@ -552,7 +557,7 @@ function syncAmountInputs() {
       keyName: "incomeItemId",
       keyValue: item.id
     })
-    const defaultValue = Number(item.defaultAmount || 0)
+    const defaultValue = shouldInitMonthDefaults.value ? Number(item.defaultAmount || 0) : 0
     const value = latestValue === null ? defaultValue : latestValue
     incomeAmounts[item.id] = String(Number.isNaN(value) ? 0 : value)
   })
@@ -563,7 +568,7 @@ function syncAmountInputs() {
       keyName: "fixedExpenseItemId",
       keyValue: item.id
     })
-    const defaultValue = Number(item.defaultAmount || 0)
+    const defaultValue = shouldInitMonthDefaults.value ? Number(item.defaultAmount || 0) : 0
     const value = latestValue === null ? defaultValue : latestValue
     fixedExpenseAmounts[item.id] = String(Number.isNaN(value) ? 0 : value)
   })
@@ -699,10 +704,18 @@ function clearContextFilter() {
 }
 
 function goToManagePage(url) {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持该操作")
+    return
+  }
   uni.navigateTo({ url })
 }
 
 function removeIncomeItem(item) {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持删除")
+    return
+  }
   if (!currentUser.value) {
     loadUserData()
     return
@@ -744,6 +757,10 @@ function removeIncomeItem(item) {
 }
 
 function removeFixedExpenseItem(item) {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持删除")
+    return
+  }
   if (!currentUser.value) {
     loadUserData()
     return
@@ -809,6 +826,10 @@ function handleFlowAmountBlur() {
 }
 
 function saveIncomeRecords() {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持保存")
+    return
+  }
   if (!currentUser.value) {
     loadUserData()
     return
@@ -856,6 +877,10 @@ function saveIncomeRecords() {
 }
 
 function saveFixedExpenseRecords() {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持保存")
+    return
+  }
   if (!currentUser.value) {
     loadUserData()
     return
@@ -903,6 +928,10 @@ function saveFixedExpenseRecords() {
 }
 
 function openNewFlow() {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持新增")
+    return
+  }
   newFlow.visible = true
   newFlow.content = ""
   newFlow.amount = "0"
@@ -915,6 +944,10 @@ function closeNewFlow() {
 }
 
 function openAddItemModal(type) {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持新增")
+    return
+  }
   addItemModal.visible = true
   addItemModal.type = type
   addItemModal.name = ""
@@ -947,6 +980,10 @@ function handleAddItemAmountBlur() {
 }
 
 function saveAddItemModal() {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持新增")
+    return
+  }
   if (!currentUser.value) {
     loadUserData()
     return
@@ -1022,6 +1059,10 @@ function saveAddItemModal() {
 }
 
 function saveNewFlow() {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持新增")
+    return
+  }
   if (!currentUser.value) {
     loadUserData()
     return
@@ -1286,10 +1327,19 @@ onHide(() => {
 }
 
 .back-btn {
-  margin-top: 14rpx;
+  margin: 14rpx auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 196rpx;
+  min-width: 0;
+  padding: 0 24rpx;
+  height: 56rpx;
+  line-height: 56rpx;
   border-radius: 999rpx;
   background: #1f7a4d;
   color: #fff;
+  white-space: nowrap !important;
 }
 
 .tab-row {

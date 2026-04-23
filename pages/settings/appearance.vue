@@ -1,9 +1,9 @@
-﻿<template>
+<template>
   <view class="page">
     <view class="section-card">
       <view class="section-head">
         <text class="section-title">主题模式</text>
-        <text class="section-desc">可选择三种视觉风格主题并实时预览</text>
+        <text class="section-desc">切换后立即全局生效</text>
       </view>
 
       <radio-group @change="handleThemeChange">
@@ -20,7 +20,7 @@
     <view class="section-card">
       <view class="section-head">
         <text class="section-title">字体大小</text>
-        <text class="section-desc">设置全局字号缩放比例</text>
+        <text class="section-desc">切换后立即全局生效</text>
       </view>
 
       <view class="font-size-row">
@@ -34,34 +34,26 @@
           {{ item.label }}
         </button>
       </view>
-
-      <view class="preview-box">
-        <text class="preview-title">预览</text>
-        <text class="preview-text">钱多多帮助你更清晰地掌握每月财务状况。</text>
-      </view>
     </view>
-
-    <button class="primary-btn" :loading="saving" @click="saveAppearance">保存设置</button>
   </view>
 </template>
 
 <script setup>
-import { reactive, ref } from "vue"
+import { reactive } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 import { useAppearance } from "../../composables/useAppearance"
 import { getCurrentUser, getCurrentUserSettings } from "../../utils/storage"
 
-const { applyAppearance, saveAndApplyAppearance } = useAppearance()
-const saving = ref(false)
+const { saveAndApplyAppearance, applyAppearance } = useAppearance()
 const draft = reactive({
   theme: "fresh",
   fontSize: "medium"
 })
 
 const themeOptions = [
-  { value: "fresh", label: "清新绿", desc: "自然轻盈，适合日常高频记账" },
-  { value: "ocean", label: "海岸蓝", desc: "冷静专注，适合数据浏览与统计分析" },
-  { value: "night", label: "夜幕黑", desc: "低亮护眼，适合夜间使用场景" }
+  { value: "fresh", label: "清新绿", desc: "自然轻盈，适合日常记账" },
+  { value: "ocean", label: "海岸蓝", desc: "克制清晰，适合统计浏览" },
+  { value: "night", label: "夜幕黑", desc: "低亮护眼，适合夜间使用" }
 ]
 
 const fontOptions = [
@@ -92,34 +84,24 @@ function syncFromStorage() {
   applyAppearance(draft.theme, draft.fontSize)
 }
 
+function persistAppearance(nextTheme, nextFontSize) {
+  const saved = saveAndApplyAppearance(nextTheme, nextFontSize)
+  if (!saved) {
+    showToast("设置失败，请稍后重试")
+    return false
+  }
+  draft.theme = nextTheme
+  draft.fontSize = nextFontSize
+  return true
+}
+
 function handleThemeChange(event) {
-  draft.theme = event.detail.value || "fresh"
-  applyAppearance(draft.theme, draft.fontSize)
+  const nextTheme = event.detail.value || "fresh"
+  persistAppearance(nextTheme, draft.fontSize)
 }
 
 function setFontSize(size) {
-  draft.fontSize = size
-  applyAppearance(draft.theme, draft.fontSize)
-}
-
-function saveAppearance() {
-  if (saving.value) {
-    return
-  }
-
-  saving.value = true
-  const saved = saveAndApplyAppearance(draft.theme, draft.fontSize)
-  saving.value = false
-
-  if (!saved) {
-    showToast("保存失败，请稍后重试")
-    return
-  }
-
-  uni.showToast({
-    title: "外观设置已保存",
-    icon: "success"
-  })
+  persistAppearance(draft.theme, size)
 }
 
 onShow(() => {
@@ -131,9 +113,7 @@ onShow(() => {
 .page {
   min-height: 100vh;
   padding: 24rpx;
-  background:
-    radial-gradient(circle at top left, rgba(43, 122, 75, 0.14), transparent 30%),
-    linear-gradient(180deg, #f3f8f4 0%, #f8f9fa 38%, #f8f9fa 100%);
+  background: var(--app-page-gradient);
 }
 
 .section-card {
@@ -169,7 +149,7 @@ onShow(() => {
   gap: 16rpx;
   padding: 22rpx;
   border-radius: 18rpx;
-  background: rgba(43, 122, 75, 0.07);
+  background: rgba(43, 122, 75, 0.08);
 }
 
 .radio-item + .radio-item {
@@ -201,7 +181,7 @@ onShow(() => {
   flex: 1;
   height: 82rpx;
   border-radius: 16rpx;
-  background: #f5f8f6;
+  background: rgba(148, 163, 184, 0.14);
   color: var(--text-secondary);
   font-size: calc(28rpx * var(--font-size-multiplier));
 }
@@ -209,33 +189,6 @@ onShow(() => {
 .size-btn.active {
   background: rgba(43, 122, 75, 0.16);
   color: var(--color-primary);
-  border: 2rpx solid rgba(43, 122, 75, 0.28);
-}
-
-.preview-box {
-  margin-top: 20rpx;
-  padding: 20rpx;
-  border-radius: 16rpx;
-  background: rgba(43, 122, 75, 0.06);
-}
-
-.preview-title {
-  display: block;
-  font-size: calc(26rpx * var(--font-size-multiplier));
-  color: var(--text-secondary);
-}
-
-.preview-text {
-  display: block;
-  margin-top: 8rpx;
-  font-size: calc(30rpx * var(--font-size-multiplier));
-  color: var(--text-primary);
-}
-
-.primary-btn {
-  border-radius: 18rpx;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: calc(30rpx * var(--font-size-multiplier));
+  border: 2rpx solid rgba(43, 122, 75, 0.3);
 }
 </style>

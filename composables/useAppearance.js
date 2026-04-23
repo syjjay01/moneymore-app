@@ -25,11 +25,20 @@ function syncDocumentAppearance() {
   }
 
   const root = document.documentElement
+  const body = document.body
   root.classList.remove("theme-fresh", "theme-ocean", "theme-night")
   root.classList.add(`theme-${appearanceState.theme}`)
   root.setAttribute("data-theme", appearanceState.theme)
   root.style.setProperty("--font-size-multiplier", String(appearanceState.fontMultiplier))
   root.style.setProperty("--app-scale", String(appearanceState.fontMultiplier))
+
+  if (body) {
+    body.classList.remove("theme-fresh", "theme-ocean", "theme-night")
+    body.classList.add(`theme-${appearanceState.theme}`)
+    body.setAttribute("data-theme", appearanceState.theme)
+    body.style.setProperty("--font-size-multiplier", String(appearanceState.fontMultiplier))
+    body.style.setProperty("--app-scale", String(appearanceState.fontMultiplier))
+  }
 }
 
 function syncNativeAppearance() {

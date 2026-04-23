@@ -1,5 +1,6 @@
 import App from './App'
 import { createPinia } from 'pinia'
+import { loadAndApplyAppearance } from './composables/useAppearance'
 
 // #ifndef VUE3
 import Vue from 'vue'
@@ -18,6 +19,14 @@ export function createApp() {
   const app = createSSRApp(App)
   const pinia = createPinia()
   app.use(pinia)
+  app.mixin({
+    onLoad() {
+      loadAndApplyAppearance()
+    },
+    onShow() {
+      loadAndApplyAppearance()
+    }
+  })
   return {
     app,
     pinia

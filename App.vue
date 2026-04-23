@@ -1,6 +1,8 @@
 <script>
 import { getCurrentUser, getUserList } from "./utils/storage"
 import { loadAndApplyAppearance } from "./composables/useAppearance"
+let authRedirecting = false
+let lastRedirectAt = 0
 
 function resolveAuthRoute() {
   const userList = getUserList()
@@ -19,21 +21,44 @@ function resolveAuthRoute() {
 }
 
 function redirectByAuthState() {
+  const now = Date.now()
+  if (authRedirecting || now - lastRedirectAt < 600) {
+    return
+  }
+
   const target = resolveAuthRoute()
   const pages = getCurrentPages()
-  const currentRoute = pages.length ? `/${pages[pages.length - 1].route}` : ""
+  if (!pages.length) {
+    return
+  }
+
+  const currentRoute = `/${pages[pages.length - 1].route}`
   const authRoutes = ["/pages/login/login", "/pages/login/register"]
 
   if (!target && authRoutes.includes(currentRoute)) {
+    authRedirecting = true
+    lastRedirectAt = now
     uni.switchTab({
-      url: "/pages/record/record"
+      url: "/pages/record/record",
+      complete: () => {
+        setTimeout(() => {
+          authRedirecting = false
+        }, 80)
+      }
     })
     return
   }
 
   if (target && currentRoute !== target) {
+    authRedirecting = true
+    lastRedirectAt = now
     uni.reLaunch({
-      url: target
+      url: target,
+      complete: () => {
+        setTimeout(() => {
+          authRedirecting = false
+        }, 80)
+      }
     })
   }
 }
@@ -45,7 +70,6 @@ export default {
   },
   onShow() {
     loadAndApplyAppearance()
-    redirectByAuthState()
   },
   onHide() {}
 }
@@ -63,7 +87,12 @@ page {
 }
 
 /* #ifdef H5 */
-page {
+html,
+body,
+#app,
+page,
+.uni-page-body,
+.uni-page-wrapper {
   zoom: var(--app-scale);
 }
 /* #endif */
@@ -77,7 +106,8 @@ text,
 button,
 input,
 textarea,
-picker {
+picker,
+label {
   font-size: var(--font-size-base);
 }
 

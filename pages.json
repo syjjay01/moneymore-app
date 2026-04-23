@@ -87,20 +87,20 @@
       {
         "pagePath": "pages/record/record",
         "text": "记账",
-        "iconPath": "static/tabbar/record.png",
-        "selectedIconPath": "static/tabbar/record-active.png"
+        "iconPath": "static/tabbar/record-tab.png",
+        "selectedIconPath": "static/tabbar/record-tab-active.png"
       },
       {
         "pagePath": "pages/statistics/statistics",
         "text": "统计",
-        "iconPath": "static/tabbar/statistics.png",
-        "selectedIconPath": "static/tabbar/statistics-active.png"
+        "iconPath": "static/tabbar/statistics-tab.png",
+        "selectedIconPath": "static/tabbar/statistics-tab-active.png"
       },
       {
         "pagePath": "pages/mine/mine",
         "text": "我的",
-        "iconPath": "static/tabbar/mine.png",
-        "selectedIconPath": "static/tabbar/mine-active.png"
+        "iconPath": "static/tabbar/mine-tab.png",
+        "selectedIconPath": "static/tabbar/mine-tab-active.png"
       }
     ]
   }

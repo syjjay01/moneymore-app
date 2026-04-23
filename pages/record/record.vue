@@ -85,7 +85,7 @@
         <view v-for="item in displayRecords" :key="item.id" class="flow-item">
           <view class="flow-main">
             <text class="flow-content">{{ item.content }}</text>
-            <text class="flow-tag">{{ item.tagName }}</text>
+            <text class="flow-tag">{{ item.tagEmoji ? `${item.tagEmoji} ` : "" }}{{ item.tagName }}</text>
             <text v-if="showAllMonthRecords" class="flow-date">{{ item.date }}</text>
           </view>
           <text class="flow-amount">-￥{{ formatAmount(item.amount) }}</text>
@@ -263,9 +263,9 @@ import {
   getCurrentUserData,
   getStorageSync,
   removeStorageSync,
-  replaceUserCollection,
   saveUserTransaction,
-  upsertMonthlyTransaction
+  upsertMonthlyTransaction,
+  updateUserData
 } from "../../utils/storage"
 
 const budgetStore = useBudgetStore()
@@ -299,10 +299,13 @@ const contextTagId = ref("")
 
 const incomeItems = ref([])
 const fixedExpenseItems = ref([])
+const sourceIncomeItems = ref([])
+const sourceFixedExpenseItems = ref([])
 const expenseTags = ref([])
 const transactions = ref([])
 const incomeAmounts = reactive({})
 const fixedExpenseAmounts = reactive({})
+const recordTabCustom = ref(createDefaultRecordTabCustom())
 
 const newFlow = reactive({
   visible: false,
@@ -321,6 +324,7 @@ const addItemModal = reactive({
 const isRecognizing = ref(false)
 const recognitionSupported = ref(false)
 let recognition = null
+const RECORD_TAB_CUSTOM_KEY = "recordTabCustom"
 
 const monthLabel = computed(() => {
   const [year, month] = selectedMonth.value.split("-")
@@ -373,7 +377,8 @@ const dailyRecords = computed(() => {
       content: item.note || expenseTagMap.value[item.tagId]?.name || "日常支出",
       amount: Number(item.amount || 0),
       date: item.date,
-      tagName: expenseTagMap.value[item.tagId]?.name || "未分类"
+      tagName: expenseTagMap.value[item.tagId]?.name || "未分类",
+      tagEmoji: expenseTagMap.value[item.tagId]?.emoji || ""
     }))
 })
 
@@ -406,7 +411,8 @@ const monthRecords = computed(() => {
       content: item.note || expenseTagMap.value[item.tagId]?.name || "日常支出",
       amount: Number(item.amount || 0),
       date: item.date,
-      tagName: expenseTagMap.value[item.tagId]?.name || "未分类"
+      tagName: expenseTagMap.value[item.tagId]?.name || "未分类",
+      tagEmoji: expenseTagMap.value[item.tagId]?.emoji || ""
     }))
 })
 
@@ -436,6 +442,79 @@ function formatAmount(value) {
 
 function createId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function createDefaultRecordTabCustom() {
+  return {
+    incomeAdds: [],
+    incomeHiddenIds: [],
+    fixedAdds: [],
+    fixedHiddenIds: []
+  }
+}
+
+function normalizeRecordTabCustom(config) {
+  const base = createDefaultRecordTabCustom()
+  const next = { ...base, ...(config || {}) }
+  return {
+    incomeAdds: Array.isArray(next.incomeAdds) ? next.incomeAdds : [],
+    incomeHiddenIds: Array.isArray(next.incomeHiddenIds) ? next.incomeHiddenIds : [],
+    fixedAdds: Array.isArray(next.fixedAdds) ? next.fixedAdds : [],
+    fixedHiddenIds: Array.isArray(next.fixedHiddenIds) ? next.fixedHiddenIds : []
+  }
+}
+
+function mergeRecordItems(baseList, addList, hiddenIds, addFlagKey = "__fromRecordCustom") {
+  const hiddenSet = new Set(Array.isArray(hiddenIds) ? hiddenIds : [])
+  const normalizedBase = (Array.isArray(baseList) ? baseList : [])
+    .filter((item) => item?.id && !hiddenSet.has(item.id))
+    .map((item) => ({
+      ...item,
+      [addFlagKey]: false
+    }))
+  const normalizedAdds = (Array.isArray(addList) ? addList : [])
+    .filter((item) => item?.id && !hiddenSet.has(item.id))
+    .map((item) => ({
+      ...item,
+      [addFlagKey]: true
+    }))
+  return [...normalizedBase, ...normalizedAdds]
+}
+
+function applyRecordTabItems() {
+  incomeItems.value = mergeRecordItems(
+    sourceIncomeItems.value,
+    recordTabCustom.value.incomeAdds,
+    recordTabCustom.value.incomeHiddenIds
+  )
+  fixedExpenseItems.value = mergeRecordItems(
+    sourceFixedExpenseItems.value,
+    recordTabCustom.value.fixedAdds,
+    recordTabCustom.value.fixedHiddenIds
+  )
+}
+
+function saveRecordTabCustomConfig(updater) {
+  if (!currentUser.value) {
+    return false
+  }
+
+  return updateUserData(currentUser.value, (userData) => {
+    const settings = userData?.settings || {}
+    const currentConfig = normalizeRecordTabCustom(settings[RECORD_TAB_CUSTOM_KEY] || settings.record_tab_custom)
+    const nextConfig = normalizeRecordTabCustom(
+      typeof updater === "function" ? updater(currentConfig) : updater
+    )
+
+    return {
+      ...userData,
+      settings: {
+        ...settings,
+        [RECORD_TAB_CUSTOM_KEY]: nextConfig,
+        record_tab_custom: nextConfig
+      }
+    }
+  })
 }
 
 function normalizeAmount(value) {
@@ -505,10 +584,14 @@ function loadUserData() {
     return
   }
 
-  incomeItems.value = userData.incomeItems || userData.income_items || []
-  fixedExpenseItems.value = userData.fixedExpenseItems || userData.fixed_expense_items || []
+  sourceIncomeItems.value = userData.incomeItems || userData.income_items || []
+  sourceFixedExpenseItems.value = userData.fixedExpenseItems || userData.fixed_expense_items || []
   expenseTags.value = userData.expenseTags || userData.expense_tags || []
   transactions.value = userData.transactions || []
+  recordTabCustom.value = normalizeRecordTabCustom(
+    userData?.settings?.[RECORD_TAB_CUSTOM_KEY] || userData?.settings?.record_tab_custom
+  )
+  applyRecordTabItems()
 
   if (!newFlow.tagId && expenseTags.value.length) {
     newFlow.tagId = expenseTags.value[0].id
@@ -634,8 +717,21 @@ function removeIncomeItem(item) {
         return
       }
 
-      const nextList = incomeItems.value.filter((current) => current.id !== item.id)
-      const saved = replaceUserCollection(currentUser.value, "incomeItems", nextList)
+      const saved = saveRecordTabCustomConfig((config) => {
+        if (item.__fromRecordCustom) {
+          return {
+            ...config,
+            incomeAdds: (config.incomeAdds || []).filter((current) => current.id !== item.id)
+          }
+        }
+
+        const hidden = new Set(config.incomeHiddenIds || [])
+        hidden.add(item.id)
+        return {
+          ...config,
+          incomeHiddenIds: [...hidden]
+        }
+      })
       if (!saved) {
         showToast("删除失败，请稍后重试")
         return
@@ -662,8 +758,21 @@ function removeFixedExpenseItem(item) {
         return
       }
 
-      const nextList = fixedExpenseItems.value.filter((current) => current.id !== item.id)
-      const saved = replaceUserCollection(currentUser.value, "fixedExpenseItems", nextList)
+      const saved = saveRecordTabCustomConfig((config) => {
+        if (item.__fromRecordCustom) {
+          return {
+            ...config,
+            fixedAdds: (config.fixedAdds || []).filter((current) => current.id !== item.id)
+          }
+        }
+
+        const hidden = new Set(config.fixedHiddenIds || [])
+        hidden.add(item.id)
+        return {
+          ...config,
+          fixedHiddenIds: [...hidden]
+        }
+      })
       if (!saved) {
         showToast("删除失败，请稍后重试")
         return
@@ -856,43 +965,51 @@ function saveAddItemModal() {
   }
 
   if (addItemModal.type === "income") {
-    const duplicated = incomeItems.value.some((item) => item.name === name)
+    const duplicated = [...sourceIncomeItems.value, ...(recordTabCustom.value.incomeAdds || [])].some(
+      (item) => item.name === name
+    )
     if (duplicated) {
       showToast("收入项目名称已存在")
       return
     }
 
-    const nextList = [
-      ...incomeItems.value,
-      {
-        id: createId("income_item"),
-        name,
-        type: addItemModal.incomeType,
-        defaultAmount
-      }
-    ]
-    const saved = replaceUserCollection(currentUser.value, "incomeItems", nextList)
+    const saved = saveRecordTabCustomConfig((config) => ({
+      ...config,
+      incomeAdds: [
+        ...(config.incomeAdds || []),
+        {
+          id: createId("income_item"),
+          name,
+          type: addItemModal.incomeType,
+          defaultAmount
+        }
+      ]
+    }))
     if (!saved) {
       showToast("保存失败，请稍后重试")
       return
     }
   } else {
-    const duplicated = fixedExpenseItems.value.some((item) => item.name === name)
+    const duplicated = [...sourceFixedExpenseItems.value, ...(recordTabCustom.value.fixedAdds || [])].some(
+      (item) => item.name === name
+    )
     if (duplicated) {
       showToast("固定支出项目名称已存在")
       return
     }
 
-    const nextList = [
-      ...fixedExpenseItems.value,
-      {
-        id: createId("fixed_item"),
-        name,
-        defaultAmount,
-        isSystem: false
-      }
-    ]
-    const saved = replaceUserCollection(currentUser.value, "fixedExpenseItems", nextList)
+    const saved = saveRecordTabCustomConfig((config) => ({
+      ...config,
+      fixedAdds: [
+        ...(config.fixedAdds || []),
+        {
+          id: createId("fixed_item"),
+          name,
+          defaultAmount,
+          isSystem: false
+        }
+      ]
+    }))
     if (!saved) {
       showToast("保存失败，请稍后重试")
       return

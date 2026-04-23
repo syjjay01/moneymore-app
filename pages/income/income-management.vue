@@ -3,7 +3,7 @@
     <view class="hero-card">
       <text class="hero-kicker">收入项管理</text>
       <text class="hero-title">管理收入来源</text>
-      <text class="hero-desc">支持默认金额和每月自动记账设置，删除时至少保留一项。</text>
+      <text class="hero-desc">支持默认金额设置，删除时至少保留一项。</text>
     </view>
 
     <view class="form-card">
@@ -26,11 +26,6 @@
         <input v-model="form.defaultAmount" class="input" type="digit" placeholder="请输入默认金额" />
       </view>
 
-      <view class="switch-row">
-        <text class="switch-label">每月自动记账</text>
-        <switch :checked="form.autoRecord" color="#2B7A4B" @change="handleAutoRecordChange" />
-      </view>
-
       <view class="action-row">
         <button class="primary-btn" @click="handleSubmit">{{ editingId ? "保存修改" : "新增收入项" }}</button>
         <button v-if="editingId" class="ghost-btn" @click="resetForm">取消编辑</button>
@@ -48,7 +43,7 @@
           <view class="item-main">
             <text class="item-name">{{ item.name }}</text>
             <text class="item-meta">
-              {{ typeLabelMap[item.type] }} · 默认 {{ formatAmount(item.defaultAmount) }} · {{ item.autoRecord ? "自动记账" : "手动记账" }}
+              {{ typeLabelMap[item.type] }} · 默认 {{ formatAmount(item.defaultAmount) }}
             </text>
           </view>
           <view class="item-actions">
@@ -85,8 +80,7 @@ const editingId = ref("")
 const form = reactive({
   name: "",
   type: "fixed",
-  defaultAmount: "",
-  autoRecord: false
+  defaultAmount: ""
 })
 
 const selectedTypeIndex = computed(() => typeLabels.indexOf(typeLabelMap[form.type] || "固定"))
@@ -119,8 +113,7 @@ function normalizeItem(item) {
     id: item.id,
     name: item.name || "未命名收入项",
     type: item.type || "fixed",
-    defaultAmount: Number(item.defaultAmount || 0),
-    autoRecord: Boolean(item.autoRecord)
+    defaultAmount: Number(item.defaultAmount || 0)
   }
 }
 
@@ -142,16 +135,11 @@ function resetForm() {
   form.name = ""
   form.type = "fixed"
   form.defaultAmount = ""
-  form.autoRecord = false
 }
 
 function handleTypeChange(event) {
   const label = typeLabels[Number(event.detail.value)] || typeLabels[0]
   form.type = typeValueMap[label]
-}
-
-function handleAutoRecordChange(event) {
-  form.autoRecord = event.detail.value
 }
 
 function persist(nextList, successText) {
@@ -191,8 +179,7 @@ function handleSubmit() {
   const nextItem = {
     name,
     type: form.type,
-    defaultAmount,
-    autoRecord: form.autoRecord
+    defaultAmount
   }
 
   if (editingId.value) {
@@ -214,7 +201,6 @@ function startEdit(item) {
   form.name = item.name
   form.type = item.type
   form.defaultAmount = String(item.defaultAmount || 0)
-  form.autoRecord = Boolean(item.autoRecord)
 }
 
 function removeItem(item) {
@@ -327,19 +313,6 @@ onShow(() => {
 .picker-value {
   display: flex;
   align-items: center;
-}
-
-.switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 24rpx;
-  padding: 18rpx 4rpx;
-}
-
-.switch-label {
-  font-size: 28rpx;
-  color: var(--text-primary);
 }
 
 .action-row {

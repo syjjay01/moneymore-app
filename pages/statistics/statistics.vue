@@ -283,6 +283,7 @@ const expenseCategoryStats = computed(() => {
   })
 
   return Object.values(map)
+    .filter((item) => Number(item.value || 0) > 0)
     .sort((a, b) => b.value - a.value)
     .map((item, index) => ({
       ...item,
@@ -394,7 +395,7 @@ const pieOption = computed(() => {
   return {
     tooltip: {
       trigger: "item",
-      formatter: "{b}<br/>¥{c} ({d}%)"
+      formatter: (params) => `${params.name}  ¥${params.value}  (${params.percent}%)`
     },
     legend: {
       bottom: 0,
@@ -408,13 +409,11 @@ const pieOption = computed(() => {
     series: [
       {
         type: "pie",
-        radius: ["45%", "70%"],
-        center: ["50%", "42%"],
+        radius: ["42%", "64%"],
+        center: ["50%", "40%"],
         avoidLabelOverlap: false,
         label: {
-          show: true,
-          formatter: "{b}\n¥{c}",
-          fontSize: 11
+          show: false
         },
         data
       }

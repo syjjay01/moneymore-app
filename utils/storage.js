@@ -97,17 +97,17 @@ export function createDefaultUserData(username) {
   return {
     username,
     incomeItems: [
-      { id: "income_salary", name: "工资", type: "fixed", autoRecord: false },
-      { id: "income_sideline", name: "副业", type: "variable", autoRecord: false },
-      { id: "income_other", name: "其他", type: "other", autoRecord: false }
+      { id: "income_salary", name: "工资", type: "fixed", defaultAmount: 0 },
+      { id: "income_sideline", name: "副业", type: "variable", defaultAmount: 0 },
+      { id: "income_other", name: "其他", type: "other", defaultAmount: 0 }
     ],
     fixedExpenseItems: [
-      { id: "fixed_mortgage", name: "房贷" },
-      { id: "fixed_support", name: "赡养费" },
-      { id: "fixed_utilities", name: "水电费" },
-      { id: "fixed_property", name: "物业费" },
-      { id: "fixed_network", name: "宽带话费" },
-      { id: "fixed_education", name: "小孩教育费" }
+      { id: "fixed_mortgage", name: "房贷", defaultAmount: 0 },
+      { id: "fixed_support", name: "赡养费", defaultAmount: 0 },
+      { id: "fixed_utilities", name: "水电费", defaultAmount: 0 },
+      { id: "fixed_property", name: "物业费", defaultAmount: 0 },
+      { id: "fixed_network", name: "宽带话费", defaultAmount: 0 },
+      { id: "fixed_education", name: "小孩教育费", defaultAmount: 0 }
     ],
     expenseTags: [
       { id: "tag_food", name: "吃饭" },

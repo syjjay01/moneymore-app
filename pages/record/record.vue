@@ -40,7 +40,19 @@
     <view v-if="activeTab === 'daily'" class="card">
       <view class="card-head">
         <text class="card-title">日常支出</text>
-        <button class="mini-primary" size="mini" @click="openNewFlow">新流水</button>
+        <button class="mini-primary" size="mini" @click="openNewFlow">新支出</button>
+      </view>
+
+      <view class="day-tool-row">
+        <text class="day-current-label">
+          {{ showAllMonthRecords ? `当前月份：${monthLabel}` : `当前日期：${selectedDay}` }}
+        </text>
+        <view class="day-tool-actions">
+          <view class="mini-outline" @click="toggleRecordMode">
+            {{ showAllMonthRecords ? "按日查看" : "查看当月全部" }}
+          </view>
+          <view v-if="!isCurrentDay" class="mini-outline" @click="backToToday">回到当天</view>
+        </view>
       </view>
 
       <view v-if="contextLabel" class="context-line">
@@ -48,11 +60,18 @@
         <text class="context-clear" @click="clearContextFilter">清除</text>
       </view>
 
-      <scroll-view class="day-scroll" scroll-x>
+      <scroll-view
+        v-if="!showAllMonthRecords"
+        class="day-scroll"
+        scroll-x
+        scroll-with-animation
+        :scroll-into-view="dayScrollIntoView"
+      >
         <view class="day-list">
           <view
             v-for="day in monthDays"
             :key="day.date"
+            :id="`day-${day.date}`"
             class="day-chip"
             :class="{ active: selectedDay === day.date }"
             @click="selectedDay = day.date"
@@ -62,22 +81,28 @@
         </view>
       </scroll-view>
 
-      <view v-if="dailyRecords.length" class="flow-list">
-        <view v-for="item in dailyRecords" :key="item.id" class="flow-item">
+      <view v-if="displayRecords.length" class="flow-list">
+        <view v-for="item in displayRecords" :key="item.id" class="flow-item">
           <view class="flow-main">
             <text class="flow-content">{{ item.content }}</text>
             <text class="flow-tag">{{ item.tagName }}</text>
+            <text v-if="showAllMonthRecords" class="flow-date">{{ item.date }}</text>
           </view>
-          <text class="flow-amount">￥{{ formatAmount(item.amount) }}</text>
+          <text class="flow-amount">-￥{{ formatAmount(item.amount) }}</text>
         </view>
       </view>
-      <view v-else class="empty-box">当天还没有流水，点“新流水”记一笔。</view>
+      <view v-else class="empty-box">
+        {{ showAllMonthRecords ? "本月还没有支出流水。" : "当天还没有支出流水，点“新支出”记一笔。" }}
+      </view>
     </view>
 
     <view v-if="activeTab === 'fixed'" class="card">
       <view class="card-head">
         <text class="card-title">固定支出区块</text>
-        <text class="manage-link" @click="goToManagePage('/pages/fixed-expense/fixed-expense-management')">管理固定支出</text>
+        <view class="head-actions">
+          <text class="manage-link" @click="goToManagePage('/pages/fixed-expense/fixed-expense-management')">管理</text>
+          <text class="manage-link" @click="openAddItemModal('fixed')">新增项目</text>
+        </view>
       </view>
 
       <view v-if="fixedExpenseItems.length">
@@ -93,6 +118,7 @@
               @blur="handleAmountBlur(fixedExpenseAmounts, item.id)"
             />
           </view>
+          <text class="row-delete" @click="removeFixedExpenseItem(item)">删除</text>
         </view>
       </view>
       <view v-else class="empty-box">暂无固定支出项。</view>
@@ -103,7 +129,10 @@
     <view v-if="activeTab === 'income'" class="card">
       <view class="card-head">
         <text class="card-title">收入区块</text>
-        <text class="manage-link" @click="goToManagePage('/pages/income/income-management')">管理收入项</text>
+        <view class="head-actions">
+          <text class="manage-link" @click="goToManagePage('/pages/income/income-management')">管理</text>
+          <text class="manage-link" @click="openAddItemModal('income')">新增项目</text>
+        </view>
       </view>
 
       <view v-if="incomeItems.length">
@@ -119,6 +148,7 @@
               @blur="handleAmountBlur(incomeAmounts, item.id)"
             />
           </view>
+          <text class="row-delete" @click="removeIncomeItem(item)">删除</text>
         </view>
       </view>
       <view v-else class="empty-box">暂无收入项。</view>
@@ -129,7 +159,7 @@
     <view v-if="newFlow.visible" class="sheet-mask" @click="closeNewFlow">
       <view class="sheet" @click.stop>
         <view class="sheet-head">
-          <text class="sheet-title">新增流水</text>
+          <text class="sheet-title">新增支出</text>
           <text class="sheet-close" @click="closeNewFlow">×</text>
         </view>
 
@@ -177,11 +207,55 @@
         <button class="primary-btn" @click="saveNewFlow">保存</button>
       </view>
     </view>
+
+    <view v-if="addItemModal.visible" class="sheet-mask" @click="closeAddItemModal">
+      <view class="sheet" @click.stop>
+        <view class="sheet-head">
+          <text class="sheet-title">{{ addItemModal.type === "income" ? "新增收入项目" : "新增固定支出项目" }}</text>
+          <text class="sheet-close" @click="closeAddItemModal">×</text>
+        </view>
+
+        <view class="field">
+          <text class="field-label">名称</text>
+          <input
+            v-model="addItemModal.name"
+            class="field-input"
+            maxlength="20"
+            :placeholder="addItemModal.type === 'income' ? '例如：奖金、投资收益' : '例如：房租、停车费'"
+          />
+        </view>
+
+        <view v-if="addItemModal.type === 'income'" class="field">
+          <text class="field-label">类型</text>
+          <picker :range="incomeTypeLabels" :value="incomeTypeIndex" @change="handleIncomeTypePick">
+            <view class="picker-inline">{{ incomeTypeLabelMap[addItemModal.incomeType] }}</view>
+          </picker>
+        </view>
+
+        <view class="field">
+          <text class="field-label">默认金额</text>
+          <view class="field-amount-row">
+            <view class="amount-box flex-1">
+              <text class="currency">￥</text>
+              <input
+                v-model="addItemModal.defaultAmount"
+                class="amount-input"
+                type="digit"
+                @focus="handleAddItemAmountFocus"
+                @blur="handleAddItemAmountBlur"
+              />
+            </view>
+          </view>
+        </view>
+
+        <button class="primary-btn" @click="saveAddItemModal">保存项目</button>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
-import { computed, reactive, ref } from "vue"
+import { computed, nextTick, reactive, ref, watch } from "vue"
 import { onHide, onShow } from "@dcloudio/uni-app"
 import { useBudgetStore } from "../../stores/budget"
 import {
@@ -189,6 +263,7 @@ import {
   getCurrentUserData,
   getStorageSync,
   removeStorageSync,
+  replaceUserCollection,
   saveUserTransaction,
   upsertMonthlyTransaction
 } from "../../utils/storage"
@@ -201,11 +276,24 @@ const tabs = [
   { label: "固定支出区块", value: "fixed" },
   { label: "收入区块", value: "income" }
 ]
+const incomeTypeLabelMap = {
+  fixed: "固定",
+  variable: "波动",
+  other: "其他"
+}
+const incomeTypeLabels = ["固定", "波动", "其他"]
+const incomeTypeValueMap = {
+  固定: "fixed",
+  波动: "variable",
+  其他: "other"
+}
 
 const currentUser = ref("")
 const activeTab = ref("daily")
 const selectedMonth = ref(getCurrentMonth())
 const selectedDay = ref(getCurrentDate())
+const showAllMonthRecords = ref(false)
+const dayScrollIntoView = ref("")
 const contextLabel = ref("")
 const contextTagId = ref("")
 
@@ -222,6 +310,13 @@ const newFlow = reactive({
   amount: "0",
   tagId: ""
 })
+const addItemModal = reactive({
+  visible: false,
+  type: "income",
+  name: "",
+  defaultAmount: "0",
+  incomeType: "fixed"
+})
 
 const isRecognizing = ref(false)
 const recognitionSupported = ref(false)
@@ -233,6 +328,7 @@ const monthLabel = computed(() => {
 })
 
 const isCurrentMonth = computed(() => selectedMonth.value === getCurrentMonth())
+const isCurrentDay = computed(() => selectedDay.value === getCurrentDate())
 
 const monthDays = computed(() => {
   const [year, month] = selectedMonth.value.split("-").map(Number)
@@ -276,9 +372,46 @@ const dailyRecords = computed(() => {
       id: item.id,
       content: item.note || expenseTagMap.value[item.tagId]?.name || "日常支出",
       amount: Number(item.amount || 0),
+      date: item.date,
       tagName: expenseTagMap.value[item.tagId]?.name || "未分类"
     }))
 })
+
+const monthRecords = computed(() => {
+  return transactions.value
+    .filter((item) => {
+      if (item.type !== "expense") {
+        return false
+      }
+      if (!item.tagId) {
+        return false
+      }
+      if (String(item.date || "").slice(0, 7) !== selectedMonth.value) {
+        return false
+      }
+      if (contextTagId.value && item.tagId !== contextTagId.value) {
+        return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""))
+      if (dateCompare !== 0) {
+        return dateCompare
+      }
+      return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0)
+    })
+    .map((item) => ({
+      id: item.id,
+      content: item.note || expenseTagMap.value[item.tagId]?.name || "日常支出",
+      amount: Number(item.amount || 0),
+      date: item.date,
+      tagName: expenseTagMap.value[item.tagId]?.name || "未分类"
+    }))
+})
+
+const displayRecords = computed(() => (showAllMonthRecords.value ? monthRecords.value : dailyRecords.value))
+const incomeTypeIndex = computed(() => incomeTypeLabels.indexOf(incomeTypeLabelMap[addItemModal.incomeType] || "固定"))
 
 function showToast(title) {
   uni.showToast({
@@ -307,7 +440,7 @@ function createId(prefix) {
 
 function normalizeAmount(value) {
   const amount = Number(value)
-  if (Number.isNaN(amount) || amount <= 0) {
+  if (Number.isNaN(amount) || amount < 0) {
     return null
   }
   return Number(amount.toFixed(2))
@@ -326,26 +459,34 @@ function getLatestMonthlyAmount({ type, keyName, keyValue }) {
     })
     .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))
 
-  return matched[0]?.amount || 0
+  if (!matched.length) {
+    return null
+  }
+
+  return Number(matched[0]?.amount || 0)
 }
 
 function syncAmountInputs() {
   incomeItems.value.forEach((item) => {
-    const value = getLatestMonthlyAmount({
+    const latestValue = getLatestMonthlyAmount({
       type: "income",
       keyName: "incomeItemId",
       keyValue: item.id
     })
-    incomeAmounts[item.id] = String(value || 0)
+    const defaultValue = Number(item.defaultAmount || 0)
+    const value = latestValue === null ? defaultValue : latestValue
+    incomeAmounts[item.id] = String(Number.isNaN(value) ? 0 : value)
   })
 
   fixedExpenseItems.value.forEach((item) => {
-    const value = getLatestMonthlyAmount({
+    const latestValue = getLatestMonthlyAmount({
       type: "expense",
       keyName: "fixedExpenseItemId",
       keyValue: item.id
     })
-    fixedExpenseAmounts[item.id] = String(value || 0)
+    const defaultValue = Number(item.defaultAmount || 0)
+    const value = latestValue === null ? defaultValue : latestValue
+    fixedExpenseAmounts[item.id] = String(Number.isNaN(value) ? 0 : value)
   })
 }
 
@@ -397,6 +538,33 @@ function backToCurrentMonth() {
   syncAmountInputs()
 }
 
+function backToToday() {
+  selectedMonth.value = getCurrentMonth()
+  selectedDay.value = getCurrentDate()
+  showAllMonthRecords.value = false
+  activeTab.value = "daily"
+  syncAmountInputs()
+}
+
+function toggleRecordMode() {
+  showAllMonthRecords.value = !showAllMonthRecords.value
+  if (!showAllMonthRecords.value) {
+    refreshDayScrollPosition()
+  }
+}
+
+function refreshDayScrollPosition() {
+  if (showAllMonthRecords.value) {
+    return
+  }
+
+  const target = `day-${selectedDay.value}`
+  dayScrollIntoView.value = ""
+  nextTick(() => {
+    dayScrollIntoView.value = target
+  })
+}
+
 function handleMonthPick(event) {
   const monthValue = String(event.detail.value || "").slice(0, 7)
   if (!monthValue) {
@@ -410,7 +578,7 @@ function handleMonthPick(event) {
 function applyRecordFilter() {
   const cached = getStorageSync(RECORD_FILTER_CACHE_KEY)
   if (!cached) {
-    return
+    return false
   }
 
   removeStorageSync(RECORD_FILTER_CACHE_KEY)
@@ -439,6 +607,7 @@ function applyRecordFilter() {
   }
 
   syncAmountInputs()
+  return true
 }
 
 function clearContextFilter() {
@@ -448,6 +617,62 @@ function clearContextFilter() {
 
 function goToManagePage(url) {
   uni.navigateTo({ url })
+}
+
+function removeIncomeItem(item) {
+  if (!currentUser.value) {
+    loadUserData()
+    return
+  }
+
+  uni.showModal({
+    title: "删除收入项",
+    content: `确认删除“${item.name}”吗？`,
+    confirmColor: "#E74C3C",
+    success: ({ confirm }) => {
+      if (!confirm) {
+        return
+      }
+
+      const nextList = incomeItems.value.filter((current) => current.id !== item.id)
+      const saved = replaceUserCollection(currentUser.value, "incomeItems", nextList)
+      if (!saved) {
+        showToast("删除失败，请稍后重试")
+        return
+      }
+
+      loadUserData()
+      showToast("收入项已删除")
+    }
+  })
+}
+
+function removeFixedExpenseItem(item) {
+  if (!currentUser.value) {
+    loadUserData()
+    return
+  }
+
+  uni.showModal({
+    title: "删除固定支出项",
+    content: `确认删除“${item.name}”吗？`,
+    confirmColor: "#E74C3C",
+    success: ({ confirm }) => {
+      if (!confirm) {
+        return
+      }
+
+      const nextList = fixedExpenseItems.value.filter((current) => current.id !== item.id)
+      const saved = replaceUserCollection(currentUser.value, "fixedExpenseItems", nextList)
+      if (!saved) {
+        showToast("删除失败，请稍后重试")
+        return
+      }
+
+      loadUserData()
+      showToast("固定支出项已删除")
+    }
+  })
 }
 
 function handleAmountFocus(target, key) {
@@ -490,9 +715,6 @@ function saveIncomeRecords() {
           name: item.name
         }
       }
-      if (!amount) {
-        return null
-      }
       return {
         id: createId("income"),
         type: "income",
@@ -512,10 +734,6 @@ function saveIncomeRecords() {
   }
 
   const validRecords = records.filter((item) => !item.invalid)
-  if (!validRecords.length) {
-    showToast("请至少填写一项大于0的收入")
-    return
-  }
 
   const saved = validRecords.every((record) => upsertMonthlyTransaction(currentUser.value, record, "incomeItemId"))
   if (!saved) {
@@ -544,9 +762,6 @@ function saveFixedExpenseRecords() {
           name: item.name
         }
       }
-      if (!amount) {
-        return null
-      }
       return {
         id: createId("fixed_expense"),
         type: "expense",
@@ -566,10 +781,6 @@ function saveFixedExpenseRecords() {
   }
 
   const validRecords = records.filter((item) => !item.invalid)
-  if (!validRecords.length) {
-    showToast("请至少填写一项大于0的固定支出")
-    return
-  }
 
   const saved = validRecords.every((record) => upsertMonthlyTransaction(currentUser.value, record, "fixedExpenseItemId"))
   if (!saved) {
@@ -592,6 +803,105 @@ function openNewFlow() {
 function closeNewFlow() {
   stopVoiceRecognition()
   newFlow.visible = false
+}
+
+function openAddItemModal(type) {
+  addItemModal.visible = true
+  addItemModal.type = type
+  addItemModal.name = ""
+  addItemModal.defaultAmount = "0"
+  addItemModal.incomeType = "fixed"
+}
+
+function closeAddItemModal() {
+  addItemModal.visible = false
+  addItemModal.name = ""
+  addItemModal.defaultAmount = "0"
+  addItemModal.incomeType = "fixed"
+}
+
+function handleIncomeTypePick(event) {
+  const label = incomeTypeLabels[Number(event.detail.value)] || incomeTypeLabels[0]
+  addItemModal.incomeType = incomeTypeValueMap[label]
+}
+
+function handleAddItemAmountFocus() {
+  if (String(addItemModal.defaultAmount) === "0") {
+    addItemModal.defaultAmount = ""
+  }
+}
+
+function handleAddItemAmountBlur() {
+  if (String(addItemModal.defaultAmount || "").trim() === "") {
+    addItemModal.defaultAmount = "0"
+  }
+}
+
+function saveAddItemModal() {
+  if (!currentUser.value) {
+    loadUserData()
+    return
+  }
+
+  const name = String(addItemModal.name || "").trim()
+  if (!name) {
+    showToast("请输入项目名称")
+    return
+  }
+
+  const defaultAmount = normalizeAmount(addItemModal.defaultAmount)
+  if (defaultAmount === null) {
+    showToast("默认金额格式不正确")
+    return
+  }
+
+  if (addItemModal.type === "income") {
+    const duplicated = incomeItems.value.some((item) => item.name === name)
+    if (duplicated) {
+      showToast("收入项目名称已存在")
+      return
+    }
+
+    const nextList = [
+      ...incomeItems.value,
+      {
+        id: createId("income_item"),
+        name,
+        type: addItemModal.incomeType,
+        defaultAmount
+      }
+    ]
+    const saved = replaceUserCollection(currentUser.value, "incomeItems", nextList)
+    if (!saved) {
+      showToast("保存失败，请稍后重试")
+      return
+    }
+  } else {
+    const duplicated = fixedExpenseItems.value.some((item) => item.name === name)
+    if (duplicated) {
+      showToast("固定支出项目名称已存在")
+      return
+    }
+
+    const nextList = [
+      ...fixedExpenseItems.value,
+      {
+        id: createId("fixed_item"),
+        name,
+        defaultAmount,
+        isSystem: false
+      }
+    ]
+    const saved = replaceUserCollection(currentUser.value, "fixedExpenseItems", nextList)
+    if (!saved) {
+      showToast("保存失败，请稍后重试")
+      return
+    }
+  }
+
+  loadUserData()
+  closeAddItemModal()
+  showToast("项目已新增")
 }
 
 function saveNewFlow() {
@@ -766,11 +1076,21 @@ onShow(() => {
   loadUserData()
   budgetStore.refreshBudget()
   setupSpeechRecognition()
-  applyRecordFilter()
+  const hasFilter = applyRecordFilter()
 
   if (!selectedDay.value.startsWith(selectedMonth.value)) {
     updateSelectedDayForMonth()
   }
+
+  if (!hasFilter && selectedMonth.value === getCurrentMonth()) {
+    selectedDay.value = getCurrentDate()
+  }
+
+  refreshDayScrollPosition()
+})
+
+watch(selectedDay, () => {
+  refreshDayScrollPosition()
 })
 
 onHide(() => {
@@ -888,6 +1208,12 @@ onHide(() => {
   align-items: center;
 }
 
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
 .card-title {
   font-size: 32rpx;
   font-weight: 700;
@@ -920,6 +1246,48 @@ onHide(() => {
 
 .context-clear {
   color: #1f7a4d;
+}
+
+.day-tool-row {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10rpx;
+}
+
+.day-current-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: #6f8191;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-shrink: 0;
+}
+
+.mini-outline {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 0 18rpx;
+  height: 52rpx;
+  line-height: 52rpx;
+  box-sizing: border-box;
+  border-radius: 999rpx;
+  color: #1f7a4d;
+  background: rgba(31, 122, 77, 0.06);
+  border: 1rpx solid rgba(31, 122, 77, 0.42);
+  font-size: 22rpx;
 }
 
 .day-scroll {
@@ -976,6 +1344,13 @@ onHide(() => {
   color: #7690a5;
 }
 
+.flow-date {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #8a9bb0;
+}
+
 .flow-amount {
   font-size: 30rpx;
   color: #d64541;
@@ -994,6 +1369,12 @@ onHide(() => {
   font-size: 28rpx;
   color: #162d40;
   flex: 1;
+}
+
+.row-delete {
+  flex-shrink: 0;
+  color: #d64541;
+  font-size: 24rpx;
 }
 
 .amount-box {
@@ -1094,6 +1475,18 @@ onHide(() => {
   border: 1rpx solid rgba(22, 50, 74, 0.1);
   font-size: 28rpx;
   color: #162d40;
+}
+
+.picker-inline {
+  height: 76rpx;
+  border-radius: 14rpx;
+  padding: 0 16rpx;
+  background: #f5f8fc;
+  border: 1rpx solid rgba(22, 50, 74, 0.1);
+  font-size: 28rpx;
+  color: #162d40;
+  display: flex;
+  align-items: center;
 }
 
 .field-amount-row {

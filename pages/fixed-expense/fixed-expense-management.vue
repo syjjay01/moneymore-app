@@ -19,11 +19,6 @@
         <input v-model="form.defaultAmount" class="input" type="digit" placeholder="请输入默认金额" />
       </view>
 
-      <view class="switch-row">
-        <text class="switch-label">每月自动记账</text>
-        <switch :checked="form.autoRecord" color="#2B7A4B" @change="handleAutoRecordChange" />
-      </view>
-
       <view class="action-row">
         <button class="primary-btn" @click="handleSubmit">{{ editingId ? "保存修改" : "新增固定支出项" }}</button>
         <button v-if="editingId" class="ghost-btn" @click="resetForm">取消编辑</button>
@@ -41,7 +36,7 @@
           <view class="item-main">
             <text class="item-name">{{ item.name }}</text>
             <text class="item-meta">
-              默认 {{ formatAmount(item.defaultAmount) }} · {{ item.autoRecord ? "自动记账" : "手动记账" }} · {{ item.isSystem ? "系统项" : "自定义项" }}
+              默认 {{ formatAmount(item.defaultAmount) }} · {{ item.isSystem ? "系统项" : "自定义项" }}
             </text>
           </view>
           <view class="item-actions">
@@ -69,8 +64,7 @@ const items = ref([])
 const editingId = ref("")
 const form = reactive({
   name: "",
-  defaultAmount: "",
-  autoRecord: false
+  defaultAmount: ""
 })
 
 function createId(prefix) {
@@ -101,7 +95,6 @@ function normalizeItem(item) {
     id: item.id,
     name: item.name || "未命名固定支出",
     defaultAmount: Number(item.defaultAmount || 0),
-    autoRecord: Boolean(item.autoRecord),
     isSystem: typeof item.isSystem === "boolean" ? item.isSystem : systemFixedExpenseIds.includes(item.id)
   }
 }
@@ -123,11 +116,6 @@ function resetForm() {
   editingId.value = ""
   form.name = ""
   form.defaultAmount = ""
-  form.autoRecord = false
-}
-
-function handleAutoRecordChange(event) {
-  form.autoRecord = event.detail.value
 }
 
 function persist(nextList, successText) {
@@ -166,8 +154,7 @@ function handleSubmit() {
 
   const nextItem = {
     name,
-    defaultAmount,
-    autoRecord: form.autoRecord
+    defaultAmount
   }
 
   if (editingId.value) {
@@ -188,7 +175,6 @@ function startEdit(item) {
   editingId.value = item.id
   form.name = item.name
   form.defaultAmount = String(item.defaultAmount || 0)
-  form.autoRecord = Boolean(item.autoRecord)
 }
 
 function removeItem(item) {
@@ -288,19 +274,6 @@ onShow(() => {
   border: 2rpx solid rgba(43, 122, 75, 0.14);
   border-radius: 18rpx;
   background: #fff;
-  font-size: 28rpx;
-  color: var(--text-primary);
-}
-
-.switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 24rpx;
-  padding: 18rpx 4rpx;
-}
-
-.switch-label {
   font-size: 28rpx;
   color: var(--text-primary);
 }

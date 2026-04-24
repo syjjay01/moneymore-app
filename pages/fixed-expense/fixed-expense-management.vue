@@ -3,7 +3,7 @@
     <view class="hero-card">
       <text class="hero-kicker">固定支出管理</text>
       <text class="hero-title">管理每月固定项目</text>
-      <text class="hero-desc">支持新增、编辑、删除固定支出项，历史流水会保留。</text>
+      <text class="hero-desc">仅维护项目名称，不维护金额；历史流水会保留。</text>
     </view>
 
     <view class="form-card">
@@ -12,11 +12,6 @@
       <view class="field">
         <text class="label">名称</text>
         <input v-model.trim="form.name" class="input" maxlength="20" placeholder="例如：车位费、保险、房租" />
-      </view>
-
-      <view class="field">
-        <text class="label">默认金额</text>
-        <input v-model="form.defaultAmount" class="input" type="digit" placeholder="请输入默认金额" />
       </view>
 
       <view class="action-row">
@@ -35,15 +30,11 @@
         <view v-for="item in items" :key="item.id" class="list-item">
           <view class="item-main">
             <text class="item-name">{{ item.name }}</text>
-            <text class="item-meta">
-              默认 {{ formatAmount(item.defaultAmount) }} · {{ item.isSystem ? "系统项" : "自定义项" }}
-            </text>
+            <text class="item-meta">{{ item.isSystem ? "系统项" : "自定义项" }}</text>
           </view>
           <view class="item-actions">
             <text class="link-btn" @click="startEdit(item)">编辑</text>
-            <text class="danger-link" @click="removeItem(item)">
-              删除
-            </text>
+            <text class="danger-link" @click="removeItem(item)">删除</text>
           </view>
         </view>
       </view>
@@ -63,8 +54,7 @@ const currentUser = ref("")
 const items = ref([])
 const editingId = ref("")
 const form = reactive({
-  name: "",
-  defaultAmount: ""
+  name: ""
 })
 
 function createId(prefix) {
@@ -78,23 +68,10 @@ function showToast(title) {
   })
 }
 
-function normalizeAmount(value) {
-  const amount = Number(value)
-  if (Number.isNaN(amount) || amount < 0) {
-    return null
-  }
-  return Number(amount.toFixed(2))
-}
-
-function formatAmount(value) {
-  return Number(value || 0).toFixed(2)
-}
-
 function normalizeItem(item) {
   return {
     id: item.id,
     name: item.name || "未命名固定支出",
-    defaultAmount: Number(item.defaultAmount || 0),
     isSystem: typeof item.isSystem === "boolean" ? item.isSystem : systemFixedExpenseIds.includes(item.id)
   }
 }
@@ -115,7 +92,6 @@ function loadItems() {
 function resetForm() {
   editingId.value = ""
   form.name = ""
-  form.defaultAmount = ""
 }
 
 function persist(nextList, successText) {
@@ -140,12 +116,6 @@ function handleSubmit() {
     return
   }
 
-  const defaultAmount = normalizeAmount(form.defaultAmount || 0)
-  if (defaultAmount === null) {
-    showToast("默认金额格式不正确")
-    return
-  }
-
   const duplicated = items.value.some((item) => item.name === name && item.id !== editingId.value)
   if (duplicated) {
     showToast("固定支出项名称已存在")
@@ -153,8 +123,7 @@ function handleSubmit() {
   }
 
   const nextItem = {
-    name,
-    defaultAmount
+    name
   }
 
   if (editingId.value) {
@@ -174,7 +143,6 @@ function handleSubmit() {
 function startEdit(item) {
   editingId.value = item.id
   form.name = item.name
-  form.defaultAmount = String(item.defaultAmount || 0)
 }
 
 function removeItem(item) {
@@ -349,10 +317,6 @@ onShow(() => {
 .danger-link {
   color: var(--color-danger);
   font-size: 26rpx;
-}
-
-.danger-link.disabled {
-  color: #a8b0b8;
 }
 
 .empty-state {

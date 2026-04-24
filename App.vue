@@ -10,7 +10,7 @@ function resolveAuthRoute() {
   const hasCurrentUser = userList.some((item) => item.username === currentUser)
 
   if (!userList.length) {
-    return "/pages/login/register"
+    return "/pages/login/login?tab=register"
   }
 
   if (!currentUser || !hasCurrentUser) {
@@ -27,6 +27,7 @@ function redirectByAuthState() {
   }
 
   const target = resolveAuthRoute()
+  const targetPath = target ? target.split("?")[0] : ""
   const pages = getCurrentPages()
   if (!pages.length) {
     return
@@ -49,7 +50,7 @@ function redirectByAuthState() {
     return
   }
 
-  if (target && currentRoute !== target) {
+  if (target && currentRoute !== targetPath) {
     authRedirecting = true
     lastRedirectAt = now
     uni.reLaunch({
@@ -83,7 +84,7 @@ page {
   font-size: var(--font-size-base);
   color: var(--text-primary);
   background-color: var(--bg-page);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 /* #ifdef H5 */
@@ -107,8 +108,25 @@ button,
 input,
 textarea,
 picker,
-label {
-  font-size: var(--font-size-base);
+label,
+uni-view,
+uni-text,
+uni-button,
+uni-input,
+uni-textarea,
+uni-picker,
+uni-label,
+.uni-input-input,
+.uni-easyinput__content-input,
+.uni-textarea-textarea {
+  font-size: var(--font-size-base) !important;
+  color: var(--text-primary);
+}
+
+page *,
+.uni-page *,
+.uni-page-body * {
+  font-size: var(--font-size-base) !important;
 }
 
 .text-primary {
@@ -117,5 +135,103 @@ label {
 
 .text-secondary {
   color: var(--text-secondary);
+}
+
+.hero-card,
+.section-card,
+.form-card,
+.list-card,
+.top-card,
+.card,
+.sheet,
+.modal-card,
+.summary-card,
+.budget-card,
+.chart-card,
+.insight-card {
+  background: var(--bg-card) !important;
+  box-shadow: var(--shadow-card) !important;
+  border: 1rpx solid var(--line-soft) !important;
+}
+
+.hero-desc,
+.section-desc,
+.item-meta,
+.tips,
+.month-tip,
+.card-desc,
+.budget-desc,
+.budget-note,
+.detail-note,
+.detail-time,
+.field-label,
+.label {
+  color: var(--text-secondary) !important;
+}
+
+.hero-title,
+.section-title,
+.card-title,
+.item-name,
+.username,
+.month-label,
+.sheet-title,
+.modal-title,
+.budget-title,
+.summary-value,
+.insight-title {
+  color: var(--text-primary) !important;
+}
+
+.primary-btn,
+.mini-primary {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.outline-btn,
+.ghost-btn {
+  background: transparent !important;
+  color: var(--color-primary) !important;
+  border-color: rgba(47, 143, 99, 0.28) !important;
+}
+
+.danger-btn,
+.danger-link,
+.row-delete {
+  color: var(--color-danger) !important;
+}
+
+.field-input,
+.input,
+.picker-inline,
+.amount-input {
+  background: var(--bg-soft) !important;
+  border: 1rpx solid var(--line-soft) !important;
+  color: var(--text-primary) !important;
+}
+
+.tab-item {
+  background: var(--bg-soft) !important;
+  color: var(--text-secondary) !important;
+}
+
+.tab-item.active {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.tag-chip {
+  background: var(--bg-soft) !important;
+  color: var(--text-secondary) !important;
+}
+
+.tag-chip.active {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.warning-banner {
+  border: 1rpx solid rgba(223, 90, 78, 0.26) !important;
 }
 </style>

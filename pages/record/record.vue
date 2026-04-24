@@ -40,18 +40,16 @@
     <view v-if="activeTab === 'daily'" class="card">
       <view class="card-head">
         <text class="card-title">日常支出</text>
-        <button v-if="canOperateMonth" class="mini-primary" size="mini" @click="openNewFlow">新支出</button>
+        <button v-if="!isCurrentDay" class="mini-outline head-mini-btn" @click="backToToday">回到当天</button>
+        <button v-else-if="canCreateExpense" class="mini-primary" size="mini" @click="openNewFlow">新支出</button>
       </view>
 
       <view class="day-tool-row">
         <text class="day-current-label">
           {{ showAllMonthRecords ? `当前月份：${monthLabel}` : `当前日期：${selectedDay}` }}
         </text>
-        <view class="day-tool-actions">
-          <view class="mini-outline" @click="toggleRecordMode">
-            {{ showAllMonthRecords ? "按日查看" : "查看当月全部" }}
-          </view>
-          <view v-if="!isCurrentDay" class="mini-outline" @click="backToToday">回到当天</view>
+        <view class="mini-outline" @click="toggleRecordMode">
+          {{ showAllMonthRecords ? "按日查看" : "按月查看" }}
         </view>
       </view>
 
@@ -85,10 +83,13 @@
         <view v-for="item in displayRecords" :key="item.id" class="flow-item">
           <view class="flow-main">
             <text class="flow-content">{{ item.content }}</text>
-            <text class="flow-tag">{{ item.tagEmoji ? `${item.tagEmoji} ` : "" }}{{ item.tagName }}</text>
+            <text class="flow-tag">{{ item.tagDisplay }}</text>
             <text v-if="showAllMonthRecords" class="flow-date">{{ item.date }}</text>
           </view>
-          <text class="flow-amount">-￥{{ formatAmount(item.amount) }}</text>
+          <view class="flow-actions">
+            <text class="flow-amount">-￥{{ formatAmount(item.amount) }}</text>
+            <text v-if="canOperateMonth" class="flow-edit" @click.stop="openEditFlow(item)">✎</text>
+          </view>
         </view>
       </view>
       <view v-else class="empty-box">
@@ -100,7 +101,6 @@
       <view class="card-head">
         <text class="card-title">固定支出区块</text>
         <view v-if="canOperateMonth" class="head-actions">
-          <text class="manage-link" @click="goToManagePage('/pages/fixed-expense/fixed-expense-management')">管理</text>
           <text class="manage-link" @click="openAddItemModal('fixed')">新增项目</text>
         </view>
       </view>
@@ -130,7 +130,6 @@
       <view class="card-head">
         <text class="card-title">收入区块</text>
         <view v-if="canOperateMonth" class="head-actions">
-          <text class="manage-link" @click="goToManagePage('/pages/income/income-management')">管理</text>
           <text class="manage-link" @click="openAddItemModal('income')">新增项目</text>
         </view>
       </view>
@@ -159,7 +158,7 @@
     <view v-if="newFlow.visible" class="sheet-mask" @click="closeNewFlow">
       <view class="sheet" @click.stop>
         <view class="sheet-head">
-          <text class="sheet-title">新增支出</text>
+          <text class="sheet-title">{{ isEditingFlow ? "编辑支出" : "新增支出" }}</text>
           <text class="sheet-close" @click="closeNewFlow">×</text>
         </view>
 
@@ -169,9 +168,9 @@
         </view>
 
         <view class="field">
-          <text class="field-label">金额</text>
-          <view class="field-amount-row">
-            <view class="amount-box flex-1">
+          <view class="amount-head">
+            <text class="field-label field-label-inline">金额</text>
+            <view class="amount-box amount-inline-box">
               <text class="currency">￥</text>
               <input
                 v-model="newFlow.amount"
@@ -181,9 +180,6 @@
                 @blur="handleFlowAmountBlur"
               />
             </view>
-            <button class="voice-btn" :class="{ recording: isRecognizing }" @click="toggleVoiceRecognition">
-              {{ isRecognizing ? "停止" : "语音" }}
-            </button>
           </view>
         </view>
 
@@ -204,7 +200,26 @@
           </scroll-view>
         </view>
 
-        <button class="primary-btn" @click="saveNewFlow">保存</button>
+        <view class="field">
+          <view class="voice-head">
+            <text class="field-label field-label-inline">语音录入</text>
+            <button class="voice-btn" :class="{ recording: isRecognizing }" @click="toggleVoiceRecognition()">
+              {{ isRecognizing ? "停止识别" : "开始语音" }}
+            </button>
+          </view>
+          <view class="voice-result-row">
+            <text class="voice-raw" :class="{ empty: !voiceRecognizedText }">
+              {{ voiceRecognizedText || "显示识别的语音文本，例如:买菜30元,标签买菜" }}
+            </text>
+          </view>
+          <text class="voice-hint">识别成功后自动填充内容和金额，并自动匹配标签</text>
+          <view v-if="voiceParsePreview" class="voice-preview-card">
+            <text class="voice-preview-title">拆分预览</text>
+            <text class="voice-preview">{{ voiceParsePreview }}</text>
+          </view>
+        </view>
+
+        <button class="primary-btn" @click="saveNewFlow">{{ isEditingFlow ? "保存修改" : "保存" }}</button>
       </view>
     </view>
 
@@ -216,6 +231,21 @@
         </view>
 
         <view class="field">
+          <text class="field-label">添加方式</text>
+          <picker :range="addModeLabels" :value="addModeIndex" @change="handleAddModePick">
+            <view class="picker-inline">{{ addModeLabel }}</view>
+          </picker>
+        </view>
+
+        <view v-if="isRestoreMode" class="field">
+          <text class="field-label">管理项目</text>
+          <picker v-if="restorableItemNames.length" :range="restorableItemNames" :value="restoreItemIndex" @change="handleRestoreItemPick">
+            <view class="picker-inline">{{ selectedRestoreItemName }}</view>
+          </picker>
+          <view v-else class="picker-inline picker-disabled">暂无可添加项目</view>
+        </view>
+
+        <view v-if="!isRestoreMode" class="field">
           <text class="field-label">名称</text>
           <input
             v-model="addItemModal.name"
@@ -225,30 +255,14 @@
           />
         </view>
 
-        <view v-if="addItemModal.type === 'income'" class="field">
+        <view v-if="!isRestoreMode && addItemModal.type === 'income'" class="field">
           <text class="field-label">类型</text>
           <picker :range="incomeTypeLabels" :value="incomeTypeIndex" @change="handleIncomeTypePick">
             <view class="picker-inline">{{ incomeTypeLabelMap[addItemModal.incomeType] }}</view>
           </picker>
         </view>
 
-        <view class="field">
-          <text class="field-label">默认金额</text>
-          <view class="field-amount-row">
-            <view class="amount-box flex-1">
-              <text class="currency">￥</text>
-              <input
-                v-model="addItemModal.defaultAmount"
-                class="amount-input"
-                type="digit"
-                @focus="handleAddItemAmountFocus"
-                @blur="handleAddItemAmountBlur"
-              />
-            </view>
-          </view>
-        </view>
-
-        <button class="primary-btn" @click="saveAddItemModal">保存项目</button>
+        <button class="primary-btn" @click="saveAddItemModal">{{ isRestoreMode ? "添加项目" : "保存项目" }}</button>
       </view>
     </view>
   </view>
@@ -264,17 +278,19 @@ import {
   getStorageSync,
   removeStorageSync,
   saveUserTransaction,
+  setStorageSync,
   upsertMonthlyTransaction,
-  updateUserData
+  updateUserData,
+  updateUserTransaction
 } from "../../utils/storage"
 
 const budgetStore = useBudgetStore()
 const RECORD_FILTER_CACHE_KEY = "MM_RECORD_FILTER_CACHE"
 
 const tabs = [
-  { label: "日常支出区块", value: "daily" },
-  { label: "固定支出区块", value: "fixed" },
-  { label: "收入区块", value: "income" }
+  { label: "日常支出", value: "daily" },
+  { label: "固定支出", value: "fixed" },
+  { label: "收入", value: "income" }
 ]
 const incomeTypeLabelMap = {
   fixed: "固定",
@@ -286,6 +302,17 @@ const incomeTypeValueMap = {
   固定: "fixed",
   波动: "variable",
   其他: "other"
+}
+const addModeLabels = ["新增自定义", "从管理项目添加"]
+const SYSTEM_TAG_META = {
+  tag_food: { name: "吃饭", emoji: "🍜" },
+  tag_grocery: { name: "买菜", emoji: "🥬" },
+  tag_fun: { name: "娱乐", emoji: "🎮" },
+  tag_snack: { name: "零食", emoji: "🍪" },
+  tag_household: { name: "家庭耗材", emoji: "🧻" },
+  tag_clothes: { name: "衣鞋类", emoji: "👟" },
+  tag_transport: { name: "出行类", emoji: "🚌" },
+  tag_uncategorized: { name: "未分类", emoji: "📦" }
 }
 
 const currentUser = ref("")
@@ -301,6 +328,8 @@ const incomeItems = ref([])
 const fixedExpenseItems = ref([])
 const sourceIncomeItems = ref([])
 const sourceFixedExpenseItems = ref([])
+const managedIncomeItems = ref([])
+const managedFixedExpenseItems = ref([])
 const expenseTags = ref([])
 const transactions = ref([])
 const incomeAmounts = reactive({})
@@ -311,20 +340,30 @@ const newFlow = reactive({
   visible: false,
   content: "",
   amount: "0",
-  tagId: ""
+  tagId: "",
+  editingId: ""
 })
 const addItemModal = reactive({
   visible: false,
   type: "income",
+  mode: "custom",
+  restoreItemId: "",
   name: "",
-  defaultAmount: "0",
   incomeType: "fixed"
 })
 
 const isRecognizing = ref(false)
 const recognitionSupported = ref(false)
+const voiceRecognizedText = ref("")
+const voiceParsePreview = ref("")
 let recognition = null
+const speechEngine = ref("none")
+const APP_SPEECH_ENGINE_CACHE_KEY = "MM_APP_SPEECH_ENGINE"
+const APP_SPEECH_ENGINE_CANDIDATES = ["baidu", "iFly", ""]
+let speechConfigGuideShown = false
+let speechAuthGuideShown = false
 const RECORD_TAB_CUSTOM_KEY = "recordTabCustom"
+const RECORD_TAB_ITEMS_KEY = "recordTabItems"
 
 const monthLabel = computed(() => {
   const [year, month] = selectedMonth.value.split("-")
@@ -334,10 +373,9 @@ const monthLabel = computed(() => {
 const isCurrentMonth = computed(() => selectedMonth.value === getCurrentMonth())
 const isFutureMonth = computed(() => selectedMonth.value > getCurrentMonth())
 const canOperateMonth = computed(() => !isFutureMonth.value)
-const shouldInitMonthDefaults = computed(() => {
-  return selectedMonth.value === getCurrentMonth() && getCurrentDate().endsWith("-01")
-})
 const isCurrentDay = computed(() => selectedDay.value === getCurrentDate())
+const canCreateExpense = computed(() => selectedDay.value <= getCurrentDate())
+const isEditingFlow = computed(() => Boolean(newFlow.editingId))
 
 const monthDays = computed(() => {
   const [year, month] = selectedMonth.value.split("-").map(Number)
@@ -358,6 +396,13 @@ const expenseTagMap = computed(() => {
     return acc
   }, {})
 })
+
+function getTagDisplay(tagId) {
+  const tag = expenseTagMap.value[tagId] || {}
+  const tagName = tag.name || "未分类"
+  const tagEmoji = tag.emoji || "🏷️"
+  return `${tagEmoji} ${tagName}`
+}
 
 const dailyRecords = computed(() => {
   return transactions.value
@@ -383,7 +428,8 @@ const dailyRecords = computed(() => {
       amount: Number(item.amount || 0),
       date: item.date,
       tagName: expenseTagMap.value[item.tagId]?.name || "未分类",
-      tagEmoji: expenseTagMap.value[item.tagId]?.emoji || ""
+      tagEmoji: expenseTagMap.value[item.tagId]?.emoji || "",
+      tagDisplay: getTagDisplay(item.tagId)
     }))
 })
 
@@ -417,12 +463,36 @@ const monthRecords = computed(() => {
       amount: Number(item.amount || 0),
       date: item.date,
       tagName: expenseTagMap.value[item.tagId]?.name || "未分类",
-      tagEmoji: expenseTagMap.value[item.tagId]?.emoji || ""
+      tagEmoji: expenseTagMap.value[item.tagId]?.emoji || "",
+      tagDisplay: getTagDisplay(item.tagId)
     }))
 })
 
 const displayRecords = computed(() => (showAllMonthRecords.value ? monthRecords.value : dailyRecords.value))
 const incomeTypeIndex = computed(() => incomeTypeLabels.indexOf(incomeTypeLabelMap[addItemModal.incomeType] || "固定"))
+const addModeIndex = computed(() => (addItemModal.mode === "restore" ? 1 : 0))
+const addModeLabel = computed(() => addModeLabels[addModeIndex.value] || addModeLabels[0])
+const isRestoreMode = computed(() => addItemModal.mode === "restore")
+const displayedIncomeIds = computed(() => new Set(incomeItems.value.map((item) => item.id)))
+const displayedFixedIds = computed(() => new Set(fixedExpenseItems.value.map((item) => item.id)))
+const restorableIncomeItems = computed(() => {
+  return managedIncomeItems.value.filter((item) => item?.id && !displayedIncomeIds.value.has(item.id))
+})
+const restorableFixedItems = computed(() => {
+  return managedFixedExpenseItems.value.filter((item) => item?.id && !displayedFixedIds.value.has(item.id))
+})
+const restorableItems = computed(() => (addItemModal.type === "income" ? restorableIncomeItems.value : restorableFixedItems.value))
+const restorableItemNames = computed(() => restorableItems.value.map((item) => item.name))
+const restoreItemIndex = computed(() => {
+  const index = restorableItems.value.findIndex((item) => item.id === addItemModal.restoreItemId)
+  return index > -1 ? index : 0
+})
+const selectedRestoreItemName = computed(() => {
+  if (!restorableItems.value.length) {
+    return "暂无可添加项目"
+  }
+  return restorableItems.value[restoreItemIndex.value]?.name || restorableItems.value[0].name
+})
 
 function showToast(title) {
   uni.showToast({
@@ -458,6 +528,32 @@ function createDefaultRecordTabCustom() {
   }
 }
 
+function inferTagMetaByName(name = "") {
+  const value = String(name || "")
+  if (!value) return null
+  if (value.includes("吃") || value.includes("餐")) return SYSTEM_TAG_META.tag_food
+  if (value.includes("菜")) return SYSTEM_TAG_META.tag_grocery
+  if (value.includes("娱乐") || value.includes("游戏")) return SYSTEM_TAG_META.tag_fun
+  if (value.includes("零食")) return SYSTEM_TAG_META.tag_snack
+  if (value.includes("耗材") || value.includes("家庭")) return SYSTEM_TAG_META.tag_household
+  if (value.includes("衣") || value.includes("鞋")) return SYSTEM_TAG_META.tag_clothes
+  if (value.includes("出行") || value.includes("交通")) return SYSTEM_TAG_META.tag_transport
+  if (value.includes("未分类")) return SYSTEM_TAG_META.tag_uncategorized
+  return null
+}
+
+function normalizeExpenseTag(item = {}) {
+  const metaById = SYSTEM_TAG_META[item?.id]
+  const metaByName = inferTagMetaByName(item?.name)
+  const meta = metaById || metaByName || {}
+  return {
+    ...item,
+    id: item.id,
+    name: item.name || meta.name || "未分类",
+    emoji: item.emoji || item.icon || meta.emoji || "🏷️"
+  }
+}
+
 function normalizeRecordTabCustom(config) {
   const base = createDefaultRecordTabCustom()
   const next = { ...base, ...(config || {}) }
@@ -466,6 +562,34 @@ function normalizeRecordTabCustom(config) {
     incomeHiddenIds: Array.isArray(next.incomeHiddenIds) ? next.incomeHiddenIds : [],
     fixedAdds: Array.isArray(next.fixedAdds) ? next.fixedAdds : [],
     fixedHiddenIds: Array.isArray(next.fixedHiddenIds) ? next.fixedHiddenIds : []
+  }
+}
+
+function normalizeRecordTabItems(config) {
+  const next = config || {}
+  return {
+    incomeItems: Array.isArray(next.incomeItems) ? next.incomeItems : [],
+    fixedExpenseItems: Array.isArray(next.fixedExpenseItems) ? next.fixedExpenseItems : []
+  }
+}
+
+function stripRecordItemForStorage(item, type) {
+  if (!item || !item.id) {
+    return null
+  }
+  const base = {
+    id: item.id,
+    name: item.name || ""
+  }
+  if (type === "income") {
+    return {
+      ...base,
+      type: item.type || "fixed"
+    }
+  }
+  return {
+    ...base,
+    isSystem: Boolean(item.isSystem)
   }
 }
 
@@ -557,8 +681,7 @@ function syncAmountInputs() {
       keyName: "incomeItemId",
       keyValue: item.id
     })
-    const defaultValue = shouldInitMonthDefaults.value ? Number(item.defaultAmount || 0) : 0
-    const value = latestValue === null ? defaultValue : latestValue
+    const value = latestValue === null ? 0 : latestValue
     incomeAmounts[item.id] = String(Number.isNaN(value) ? 0 : value)
   })
 
@@ -568,8 +691,7 @@ function syncAmountInputs() {
       keyName: "fixedExpenseItemId",
       keyValue: item.id
     })
-    const defaultValue = shouldInitMonthDefaults.value ? Number(item.defaultAmount || 0) : 0
-    const value = latestValue === null ? defaultValue : latestValue
+    const value = latestValue === null ? 0 : latestValue
     fixedExpenseAmounts[item.id] = String(Number.isNaN(value) ? 0 : value)
   })
 }
@@ -589,9 +711,67 @@ function loadUserData() {
     return
   }
 
-  sourceIncomeItems.value = userData.incomeItems || userData.income_items || []
-  sourceFixedExpenseItems.value = userData.fixedExpenseItems || userData.fixed_expense_items || []
-  expenseTags.value = userData.expenseTags || userData.expense_tags || []
+  const latestManagedIncomeItems = userData.incomeItems || userData.income_items || []
+  const latestManagedFixedExpenseItems = userData.fixedExpenseItems || userData.fixed_expense_items || []
+  managedIncomeItems.value = latestManagedIncomeItems.map((item) => ({
+    id: item.id,
+    name: item.name || "",
+    type: item.type || "fixed"
+  }))
+  managedFixedExpenseItems.value = latestManagedFixedExpenseItems.map((item) => ({
+    id: item.id,
+    name: item.name || "",
+    isSystem: Boolean(item.isSystem)
+  }))
+  const settings = userData?.settings || {}
+  const storedRecordItems = normalizeRecordTabItems(settings[RECORD_TAB_ITEMS_KEY] || settings.record_tab_items)
+
+  if (!storedRecordItems.incomeItems.length && !storedRecordItems.fixedExpenseItems.length) {
+    sourceIncomeItems.value = latestManagedIncomeItems.map((item) => ({
+      id: item.id,
+      name: item.name || "",
+      type: item.type || "fixed"
+    }))
+    sourceFixedExpenseItems.value = latestManagedFixedExpenseItems.map((item) => ({
+      id: item.id,
+      name: item.name || "",
+      isSystem: Boolean(item.isSystem)
+    }))
+
+    updateUserData(currentUser.value, (data) => {
+      const currentSettings = data?.settings || {}
+      const snapshot = {
+        incomeItems: sourceIncomeItems.value.map((item) => stripRecordItemForStorage(item, "income")).filter(Boolean),
+        fixedExpenseItems: sourceFixedExpenseItems.value
+          .map((item) => stripRecordItemForStorage(item, "fixed"))
+          .filter(Boolean)
+      }
+
+      return {
+        ...data,
+        settings: {
+          ...currentSettings,
+          [RECORD_TAB_ITEMS_KEY]: snapshot,
+          record_tab_items: snapshot
+        }
+      }
+    })
+  } else {
+    sourceIncomeItems.value = storedRecordItems.incomeItems.map((item) => ({
+      id: item.id,
+      name: item.name || "",
+      type: item.type || "fixed"
+    }))
+    sourceFixedExpenseItems.value = storedRecordItems.fixedExpenseItems.map((item) => ({
+      id: item.id,
+      name: item.name || "",
+      isSystem: Boolean(item.isSystem)
+    }))
+  }
+
+  expenseTags.value = (userData.expenseTags || userData.expense_tags || [])
+    .map(normalizeExpenseTag)
+    .filter((item) => item?.id)
   transactions.value = userData.transactions || []
   recordTabCustom.value = normalizeRecordTabCustom(
     userData?.settings?.[RECORD_TAB_CUSTOM_KEY] || userData?.settings?.record_tab_custom
@@ -701,14 +881,6 @@ function applyRecordFilter() {
 function clearContextFilter() {
   contextTagId.value = ""
   contextLabel.value = ""
-}
-
-function goToManagePage(url) {
-  if (!canOperateMonth.value) {
-    showToast("未来月份不支持该操作")
-    return
-  }
-  uni.navigateTo({ url })
 }
 
 function removeIncomeItem(item) {
@@ -928,19 +1100,50 @@ function saveFixedExpenseRecords() {
 }
 
 function openNewFlow() {
-  if (!canOperateMonth.value) {
-    showToast("未来月份不支持新增")
+  if (!canCreateExpense.value) {
+    showToast("未来日期不支持新增")
     return
   }
   newFlow.visible = true
+  newFlow.editingId = ""
   newFlow.content = ""
   newFlow.amount = "0"
   newFlow.tagId = newFlow.tagId || expenseTags.value[0]?.id || ""
+  voiceRecognizedText.value = ""
+  voiceParsePreview.value = ""
+}
+
+function openEditFlow(item) {
+  if (!canOperateMonth.value) {
+    showToast("未来月份不支持编辑")
+    return
+  }
+  if (!item?.id) {
+    showToast("记录异常，无法编辑")
+    return
+  }
+
+  const matched = transactions.value.find((record) => record.id === item.id)
+  if (!matched) {
+    showToast("记录不存在或已被删除")
+    return
+  }
+
+  newFlow.visible = true
+  newFlow.editingId = matched.id
+  newFlow.content = String(matched.note || item.content || "")
+  newFlow.amount = String(Number(matched.amount || 0))
+  newFlow.tagId = matched.tagId || expenseTags.value[0]?.id || ""
+  voiceRecognizedText.value = ""
+  voiceParsePreview.value = ""
 }
 
 function closeNewFlow() {
   stopVoiceRecognition()
   newFlow.visible = false
+  newFlow.editingId = ""
+  voiceRecognizedText.value = ""
+  voiceParsePreview.value = ""
 }
 
 function openAddItemModal(type) {
@@ -950,33 +1153,36 @@ function openAddItemModal(type) {
   }
   addItemModal.visible = true
   addItemModal.type = type
+  addItemModal.mode = "custom"
+  addItemModal.restoreItemId = (type === "income" ? restorableIncomeItems.value : restorableFixedItems.value)[0]?.id || ""
   addItemModal.name = ""
-  addItemModal.defaultAmount = "0"
   addItemModal.incomeType = "fixed"
 }
 
 function closeAddItemModal() {
   addItemModal.visible = false
+  addItemModal.mode = "custom"
+  addItemModal.restoreItemId = ""
   addItemModal.name = ""
-  addItemModal.defaultAmount = "0"
   addItemModal.incomeType = "fixed"
+}
+
+function handleAddModePick(event) {
+  const index = Number(event.detail.value || 0)
+  addItemModal.mode = index === 1 ? "restore" : "custom"
+  if (addItemModal.mode === "restore" && !addItemModal.restoreItemId) {
+    addItemModal.restoreItemId = restorableItems.value[0]?.id || ""
+  }
+}
+
+function handleRestoreItemPick(event) {
+  const index = Number(event.detail.value || 0)
+  addItemModal.restoreItemId = restorableItems.value[index]?.id || ""
 }
 
 function handleIncomeTypePick(event) {
   const label = incomeTypeLabels[Number(event.detail.value)] || incomeTypeLabels[0]
   addItemModal.incomeType = incomeTypeValueMap[label]
-}
-
-function handleAddItemAmountFocus() {
-  if (String(addItemModal.defaultAmount) === "0") {
-    addItemModal.defaultAmount = ""
-  }
-}
-
-function handleAddItemAmountBlur() {
-  if (String(addItemModal.defaultAmount || "").trim() === "") {
-    addItemModal.defaultAmount = "0"
-  }
 }
 
 function saveAddItemModal() {
@@ -989,15 +1195,67 @@ function saveAddItemModal() {
     return
   }
 
-  const name = String(addItemModal.name || "").trim()
-  if (!name) {
-    showToast("请输入项目名称")
+  if (isRestoreMode.value) {
+    const selectedManagedItem =
+      restorableItems.value.find((item) => item.id === addItemModal.restoreItemId) || restorableItems.value[0]
+    if (!selectedManagedItem?.id) {
+      showToast("暂无可添加的管理项目")
+      return
+    }
+
+    const saved = saveRecordTabCustomConfig((config) => {
+      if (addItemModal.type === "income") {
+        const existsInSource = sourceIncomeItems.value.some((item) => item.id === selectedManagedItem.id)
+        const existsInAdds = (config.incomeAdds || []).some((item) => item.id === selectedManagedItem.id)
+        return {
+          ...config,
+          incomeHiddenIds: (config.incomeHiddenIds || []).filter((itemId) => itemId !== selectedManagedItem.id),
+          incomeAdds:
+            !existsInSource && !existsInAdds
+              ? [
+                  ...(config.incomeAdds || []),
+                  {
+                    id: selectedManagedItem.id,
+                    name: selectedManagedItem.name,
+                    type: selectedManagedItem.type || "fixed"
+                  }
+                ]
+              : config.incomeAdds || []
+        }
+      }
+      const existsInSource = sourceFixedExpenseItems.value.some((item) => item.id === selectedManagedItem.id)
+      const existsInAdds = (config.fixedAdds || []).some((item) => item.id === selectedManagedItem.id)
+      return {
+        ...config,
+        fixedHiddenIds: (config.fixedHiddenIds || []).filter((itemId) => itemId !== selectedManagedItem.id),
+        fixedAdds:
+          !existsInSource && !existsInAdds
+            ? [
+                ...(config.fixedAdds || []),
+                {
+                  id: selectedManagedItem.id,
+                  name: selectedManagedItem.name,
+                  isSystem: Boolean(selectedManagedItem.isSystem)
+                }
+              ]
+            : config.fixedAdds || []
+      }
+    })
+
+    if (!saved) {
+      showToast("添加失败，请稍后重试")
+      return
+    }
+
+    loadUserData()
+    closeAddItemModal()
+    showToast("项目已添加")
     return
   }
 
-  const defaultAmount = normalizeAmount(addItemModal.defaultAmount)
-  if (defaultAmount === null) {
-    showToast("默认金额格式不正确")
+  const name = String(addItemModal.name || "").trim()
+  if (!name) {
+    showToast("请输入项目名称")
     return
   }
 
@@ -1017,8 +1275,7 @@ function saveAddItemModal() {
         {
           id: createId("income_item"),
           name,
-          type: addItemModal.incomeType,
-          defaultAmount
+          type: addItemModal.incomeType
         }
       ]
     }))
@@ -1042,7 +1299,6 @@ function saveAddItemModal() {
         {
           id: createId("fixed_item"),
           name,
-          defaultAmount,
           isSystem: false
         }
       ]
@@ -1085,18 +1341,25 @@ function saveNewFlow() {
     return
   }
 
-  const saved = saveUserTransaction(currentUser.value, {
-    id: createId("expense"),
-    type: "expense",
-    amount,
-    tagId: newFlow.tagId,
-    note: content,
-    date: selectedDay.value,
-    createdAt: Date.now()
-  })
+  const editing = isEditingFlow.value
+  const saved = editing
+    ? updateUserTransaction(currentUser.value, newFlow.editingId, {
+        amount,
+        tagId: newFlow.tagId,
+        note: content
+      })
+    : saveUserTransaction(currentUser.value, {
+        id: createId("expense"),
+        type: "expense",
+        amount,
+        tagId: newFlow.tagId,
+        note: content,
+        date: selectedDay.value,
+        createdAt: Date.now()
+      })
 
   if (!saved) {
-    showToast("保存流水失败")
+    showToast(editing ? "保存修改失败" : "保存流水失败")
     return
   }
 
@@ -1104,12 +1367,23 @@ function saveNewFlow() {
   budgetStore.refreshBudget()
   closeNewFlow()
   uni.showToast({
-    title: "流水已新增",
+    title: editing ? "流水已更新" : "流水已新增",
     icon: "success"
   })
 }
 
 function setupSpeechRecognition() {
+  speechEngine.value = "none"
+
+  // APP 端优先使用 plus.speech
+  if (typeof plus !== "undefined" && plus?.speech) {
+    recognitionSupported.value = true
+    speechEngine.value = "plus"
+    recognition = null
+    return
+  }
+
+  // H5 端使用 Web Speech API
   if (typeof window === "undefined") {
     recognitionSupported.value = false
     return
@@ -1122,6 +1396,7 @@ function setupSpeechRecognition() {
   }
 
   recognitionSupported.value = true
+  speechEngine.value = "web"
   recognition = new SpeechRecognition()
   recognition.lang = "zh-CN"
   recognition.interimResults = false
@@ -1145,12 +1420,146 @@ function setupSpeechRecognition() {
   }
 }
 
-function extractAmount(text) {
-  const amountMatch = text.match(/(\d+(?:\.\d+)?)/)
-  if (!amountMatch) {
+function ensurePlusReady() {
+  if (typeof plus !== "undefined") {
+    return Promise.resolve(true)
+  }
+  return new Promise((resolve) => {
+    if (typeof document === "undefined") {
+      resolve(false)
+      return
+    }
+    document.addEventListener(
+      "plusready",
+      () => {
+        resolve(true)
+      },
+      { once: true }
+    )
+  })
+}
+
+const CHINESE_NUMBER_MAP = {
+  零: 0,
+  一: 1,
+  二: 2,
+  两: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9
+}
+
+const CHINESE_UNIT_MAP = {
+  十: 10,
+  百: 100,
+  千: 1000
+}
+
+const CHINESE_BIG_UNIT_MAP = {
+  万: 10000,
+  亿: 100000000
+}
+
+function convertChineseInteger(value = "") {
+  let total = 0
+  let section = 0
+  let number = -1
+
+  for (const char of value) {
+    if (Object.prototype.hasOwnProperty.call(CHINESE_NUMBER_MAP, char)) {
+      number = CHINESE_NUMBER_MAP[char]
+      continue
+    }
+
+    if (Object.prototype.hasOwnProperty.call(CHINESE_UNIT_MAP, char)) {
+      const unit = CHINESE_UNIT_MAP[char]
+      if (number < 0) {
+        number = 1
+      }
+      section += number * unit
+      number = -1
+      continue
+    }
+
+    if (Object.prototype.hasOwnProperty.call(CHINESE_BIG_UNIT_MAP, char)) {
+      const bigUnit = CHINESE_BIG_UNIT_MAP[char]
+      if (number >= 0) {
+        section += number
+      }
+      total += section
+      total *= bigUnit
+      section = 0
+      number = -1
+    }
+  }
+
+  if (number >= 0) {
+    section += number
+  }
+
+  return total + section
+}
+
+function convertChineseNumber(raw = "") {
+  const value = String(raw || "").replace(/[块元圆整正]/g, "").trim()
+  if (!value) {
     return null
   }
-  return amountMatch[1]
+  if (value === "半") {
+    return 0.5
+  }
+
+  const [integerPartRaw, decimalPartRaw] = value.split("点")
+  const integerPart = convertChineseInteger(integerPartRaw || "")
+
+  if (!decimalPartRaw) {
+    return integerPart
+  }
+
+  const decimalDigits = decimalPartRaw
+    .split("")
+    .map((char) => (Object.prototype.hasOwnProperty.call(CHINESE_NUMBER_MAP, char) ? CHINESE_NUMBER_MAP[char] : ""))
+    .join("")
+
+  const decimalValue = decimalDigits ? Number(`0.${decimalDigits}`) : 0
+  return Number((integerPart + decimalValue).toFixed(2))
+}
+
+function parseSpeechText(text = "") {
+  const raw = String(text || "").trim()
+  if (!raw) {
+    return {
+      content: "",
+      amount: null
+    }
+  }
+
+  const arabicMatch = raw.match(/(\d+(?:\.\d+)?)/)
+  if (arabicMatch) {
+    const amount = Number(arabicMatch[1])
+    return {
+      content: raw.slice(0, arabicMatch.index).replace(/[，,。！!；;：:]+$/g, "").trim(),
+      amount: Number.isNaN(amount) ? null : amount
+    }
+  }
+
+  const chineseMatch = raw.match(/[零一二两三四五六七八九十百千万亿点半]+(?:元|块|圆)?/)
+  if (chineseMatch) {
+    const amount = convertChineseNumber(chineseMatch[0])
+    return {
+      content: raw.slice(0, chineseMatch.index).replace(/[，,。！!；;：:]+$/g, "").trim(),
+      amount
+    }
+  }
+
+  return {
+    content: raw,
+    amount: null
+  }
 }
 
 function matchTagIdByText(text) {
@@ -1160,18 +1569,19 @@ function matchTagIdByText(text) {
 }
 
 function applySpeechText(text) {
-  const amount = extractAmount(text)
+  const rawText = String(text || "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+  voiceRecognizedText.value = rawText
+  const parsed = parseSpeechText(rawText)
   const matchedTagId = matchTagIdByText(text)
+  newFlow.content = parsed.content || rawText
 
-  if (!amount && !matchedTagId) {
-    showToast("无法识别，请手动输入")
-    return
+  if (parsed.amount !== null && parsed.amount !== undefined && !Number.isNaN(Number(parsed.amount))) {
+    newFlow.amount = String(Number(parsed.amount))
   }
-
-  newFlow.content = text
-  if (amount) {
-    newFlow.amount = amount
-  }
+  voiceParsePreview.value = `已填充：内容=${newFlow.content || "未识别"}，金额=${newFlow.amount || "0"}`
   if (matchedTagId) {
     newFlow.tagId = matchedTagId
   }
@@ -1179,7 +1589,86 @@ function applySpeechText(text) {
   showToast("语音识别成功")
 }
 
+function showSpeechConfigGuide(message = "") {
+  if (speechConfigGuideShown) {
+    return
+  }
+  speechConfigGuideShown = true
+  uni.showModal({
+    title: "语音引擎未配置",
+    content:
+      "当前安装包缺少可用语音识别引擎。请在 manifest.json 的 app-plus > distribute > sdkConfigs > speech 配置百度或讯飞后重新打包安装。" +
+      (message ? `\n\n原始错误：${message}` : ""),
+    showCancel: false,
+    confirmText: "我知道了",
+    success: () => {
+      speechConfigGuideShown = false
+    }
+  })
+}
+
+function showSpeechAuthGuide(message = "") {
+  if (speechAuthGuideShown) {
+    return
+  }
+  speechAuthGuideShown = true
+  uni.showModal({
+    title: "语音鉴权失败",
+    content:
+      "百度语音鉴权失败（常见为 -3004）。请核对：\n1. HBuilderX manifest 的 speech 配置是否为最新 appid/apiKey/secret；\n2. 使用的打包包名与百度控制台一致；\n3. 安卓打包证书 SHA1 与百度控制台配置一致；\n4. 修改后必须重新云打包并重装。",
+    showCancel: false,
+    confirmText: "去检查",
+    success: () => {
+      speechAuthGuideShown = false
+    }
+  })
+  if (message) {
+    showToast(`鉴权错误：${message}`)
+  }
+}
+
+function isSpeechEngineMissingError(message = "") {
+  return /not found engine|not support engine|invalid engine|缺少可用语音引擎|engine/i.test(String(message))
+}
+
+function isSpeechAuthError(message = "") {
+  return /-3004|authentication failed|auth failed|app name unknown|鉴权/i.test(String(message))
+}
+
 async function ensureMicrophonePermission() {
+  // #ifdef APP-PLUS
+  const plusReady = await ensurePlusReady()
+  if (plusReady && typeof plus !== "undefined" && plus?.os?.name === "Android") {
+    return await new Promise((resolve) => {
+      const permissionName = "android.permission.RECORD_AUDIO"
+      try {
+        plus.android.requestPermissions(
+          [permissionName],
+          (resultObj) => {
+            const deniedAlways = resultObj.deniedAlways || []
+            const deniedPresent = resultObj.deniedPresent || []
+            const granted = !deniedAlways.includes(permissionName) && !deniedPresent.includes(permissionName)
+            if (!granted) {
+              showToast("请先开启麦克风权限")
+            }
+            resolve(granted)
+          },
+          () => {
+            showToast("麦克风权限申请失败")
+            resolve(false)
+          }
+        )
+      } catch (error) {
+        showToast("麦克风权限申请失败")
+        resolve(false)
+      }
+    })
+  }
+  if (plusReady) {
+    return true
+  }
+  // #endif
+
   if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     return false
   }
@@ -1195,24 +1684,139 @@ async function ensureMicrophonePermission() {
 }
 
 function stopVoiceRecognition() {
-  if (recognition && isRecognizing.value) {
+  if (!isRecognizing.value) {
+    return
+  }
+
+  if (speechEngine.value === "plus" && typeof plus !== "undefined" && plus?.speech) {
+    plus.speech.stopRecognize()
+  } else if (recognition) {
     recognition.stop()
   }
+
   isRecognizing.value = false
 }
 
 async function startVoiceRecognition() {
-  if (!recognitionSupported.value || !recognition) {
-    showToast("当前环境不支持语音识别")
-    return
-  }
-
-  const granted = await ensureMicrophonePermission()
-  if (!granted) {
-    return
-  }
-
   try {
+    const permissionGranted = await ensureMicrophonePermission()
+    if (!permissionGranted) {
+      return
+    }
+
+    setupSpeechRecognition()
+    if (!recognitionSupported.value) {
+      showToast("当前环境不支持语音识别")
+      return
+    }
+
+    if (speechEngine.value === "plus" && typeof plus !== "undefined" && plus?.speech) {
+      const cachedEngine = String(getStorageSync(APP_SPEECH_ENGINE_CACHE_KEY) || "").trim()
+      const engineQueue = [
+        cachedEngine,
+        ...APP_SPEECH_ENGINE_CANDIDATES.filter((item) => item !== cachedEngine)
+      ].filter((item, index, list) => list.indexOf(item) === index)
+
+      const startSystemRecognizer = () => {
+        plus.speech.startRecognize(
+          {
+            userInterface: true,
+            timeout: 15,
+            punctuation: false
+          },
+          (result) => {
+            isRecognizing.value = false
+            const text = String(result || "").trim()
+            if (!text) {
+              showToast("无法识别，请手动输入")
+              return
+            }
+            applySpeechText(text)
+          },
+          (error) => {
+            isRecognizing.value = false
+            const message = String(error?.message || error || "")
+            if (message) {
+              showToast(`语音识别失败：${message}`)
+            } else {
+              showToast("无法识别，请手动输入")
+            }
+            if (isSpeechAuthError(message)) {
+              showSpeechAuthGuide(message)
+            } else if (isSpeechEngineMissingError(message)) {
+              showSpeechConfigGuide(message)
+            }
+          }
+        )
+      }
+
+      const tryStartByEngine = (engineIndex = 0) => {
+        if (engineIndex >= engineQueue.length) {
+          // 再尝试一次系统识别器（部分机型可用）
+          startSystemRecognizer()
+          return
+        }
+
+        const engine = engineQueue[engineIndex]
+        const options = {
+          timeout: 15,
+          punctuation: false
+        }
+        if (engine) {
+          options.engine = engine
+        }
+
+        plus.speech.startRecognize(
+          options,
+          (result) => {
+            isRecognizing.value = false
+            setStorageSync(APP_SPEECH_ENGINE_CACHE_KEY, engine)
+            const text = String(result || "").trim()
+            if (!text) {
+              showToast("无法识别，请手动输入")
+              return
+            }
+            applySpeechText(text)
+          },
+          (error) => {
+            const message = String(error?.message || error || "")
+            const shouldFallback = isSpeechEngineMissingError(message) && engineIndex < engineQueue.length - 1
+            if (shouldFallback) {
+              tryStartByEngine(engineIndex + 1)
+              return
+            }
+
+            const shouldTrySystem = isSpeechEngineMissingError(message) && engineIndex >= engineQueue.length - 1
+            if (shouldTrySystem) {
+              startSystemRecognizer()
+              return
+            }
+
+            isRecognizing.value = false
+            if (message) {
+              showToast(`语音识别失败：${message}`)
+            } else {
+              showToast("无法识别，请手动输入")
+            }
+            if (isSpeechAuthError(message)) {
+              showSpeechAuthGuide(message)
+            } else if (isSpeechEngineMissingError(message)) {
+              showSpeechConfigGuide(message)
+            }
+          }
+        )
+      }
+
+      isRecognizing.value = true
+      tryStartByEngine(0)
+      return
+    }
+
+    if (!recognition) {
+      showToast("当前环境不支持语音识别")
+      return
+    }
+
     recognition.start()
     isRecognizing.value = true
   } catch (error) {
@@ -1249,6 +1853,20 @@ onShow(() => {
 
 watch(selectedDay, () => {
   refreshDayScrollPosition()
+})
+
+watch(activeTab, (tab) => {
+  if (tab !== "daily") {
+    return
+  }
+
+  if (selectedMonth.value === getCurrentMonth()) {
+    selectedDay.value = getCurrentDate()
+  }
+
+  nextTick(() => {
+    refreshDayScrollPosition()
+  })
 })
 
 onHide(() => {
@@ -1420,7 +2038,7 @@ onHide(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10rpx;
+  gap: 8rpx;
 }
 
 .day-current-label {
@@ -1433,10 +2051,12 @@ onHide(() => {
   text-overflow: ellipsis;
 }
 
-.day-tool-actions {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
+.head-mini-btn {
+  margin: 0;
+  min-width: 132rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  font-size: 22rpx;
   flex-shrink: 0;
 }
 
@@ -1499,6 +2119,11 @@ onHide(() => {
   border-bottom: none;
 }
 
+.flow-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .flow-content {
   font-size: 28rpx;
   color: #162d40;
@@ -1522,6 +2147,25 @@ onHide(() => {
   font-size: 30rpx;
   color: #d64541;
   font-weight: 700;
+}
+
+.flow-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
+  margin-left: 12rpx;
+}
+
+.flow-edit {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  border-radius: 12rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #2c6ad7;
+  background: #eaf2ff;
 }
 
 .row-item {
@@ -1554,6 +2198,22 @@ onHide(() => {
   align-items: center;
   padding: 0 14rpx;
   box-sizing: border-box;
+}
+
+.flow-amount-box {
+  width: 100%;
+}
+
+.amount-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8rpx;
+}
+
+.amount-inline-box {
+  width: 300rpx;
+  max-width: 75%;
 }
 
 .flex-1 {
@@ -1601,7 +2261,13 @@ onHide(() => {
 
 .sheet {
   width: 100%;
-  padding: 24rpx;
+  box-sizing: border-box;
+  padding-top: 24rpx;
+  padding-left: 24rpx;
+  padding-right: calc(24rpx + constant(safe-area-inset-right));
+  padding-right: calc(24rpx + env(safe-area-inset-right));
+  padding-bottom: calc(24rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   border-radius: 24rpx 24rpx 0 0;
   background: #fff;
 }
@@ -1632,6 +2298,13 @@ onHide(() => {
   margin-bottom: 10rpx;
   font-size: 24rpx;
   color: #63788c;
+}
+
+.field-tip {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #8a9cb0;
 }
 
 .field-input {
@@ -1665,6 +2338,8 @@ onHide(() => {
 .voice-btn {
   margin: 0;
   width: 128rpx;
+  min-width: 128rpx;
+  flex-shrink: 0;
   height: 76rpx;
   line-height: 76rpx;
   border-radius: 14rpx;
@@ -1676,6 +2351,77 @@ onHide(() => {
 .voice-btn.recording {
   background: #fde9e7;
   color: #c0392b;
+}
+
+.voice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.field-label-inline {
+  margin-bottom: 0;
+}
+
+.voice-result-row {
+  margin-top: 10rpx;
+}
+
+.voice-raw {
+  display: block;
+  width: 100%;
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 16rpx;
+  border-radius: 14rpx;
+  background: #f5f8fc;
+  border: 1rpx solid rgba(22, 50, 74, 0.1);
+  font-size: 24rpx;
+  color: #3f566b;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-raw.empty {
+  color: #8ea0b3;
+}
+
+.voice-hint {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #7f92a5;
+  line-height: 1.5;
+}
+
+.voice-preview-card {
+  margin-top: 10rpx;
+  padding: 12rpx 14rpx;
+  border-radius: 12rpx;
+  background: #eaf7f0;
+  border: 1rpx solid rgba(43, 122, 75, 0.22);
+}
+
+.voice-preview-title {
+  display: block;
+  font-size: 22rpx;
+  color: #2b7a4b;
+  font-weight: 600;
+}
+
+.voice-preview {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #3f566b;
+  line-height: 1.5;
+}
+
+.picker-disabled {
+  color: #8ea0b3;
 }
 
 .tag-scroll {

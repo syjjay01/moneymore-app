@@ -1,50 +1,39 @@
-﻿:root,
+:root,
 .theme-fresh {
-  --color-primary: #1f7a4d;
-  --color-danger: #e74c3c;
+  --color-primary: #32936f;
+  --color-danger: #de675a;
   --color-white: #ffffff;
 
-  --text-primary: #17324a;
-  --text-secondary: #63788c;
+  --text-primary: #1d3340;
+  --text-secondary: #6d818d;
 
   --bg-page: #f6fbf8;
   --bg-card: #ffffff;
-  --app-page-gradient: radial-gradient(circle at 15% 8%, rgba(31, 122, 77, 0.22), transparent 32%), linear-gradient(170deg, #f3fcf7 0%, #eef6ff 48%, #f8fafc 100%);
+  --bg-soft: #edf6f1;
+  --line-soft: rgba(29, 51, 64, 0.08);
+  --shadow-card: 0 14rpx 34rpx rgba(24, 45, 66, 0.07);
+  --app-page-gradient: radial-gradient(circle at 12% 8%, rgba(50, 147, 111, 0.16), transparent 34%), linear-gradient(176deg, #f6fcf9 0%, #f0f7f5 42%, #fbfcfd 100%);
 
   --font-family-base: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-size-multiplier: 1;
   --app-scale: 1;
-  --font-size-base: calc(28rpx * var(--font-size-multiplier));
+  --font-size-base: 14px;
 }
 
 .theme-ocean {
-  --color-primary: #1f4f9b;
-  --color-danger: #d94848;
+  --color-primary: #6d84be;
+  --color-danger: #db786a;
   --color-white: #ffffff;
 
-  --text-primary: #162844;
-  --text-secondary: #5d708b;
+  --text-primary: #26334f;
+  --text-secondary: #7a86a4;
 
-  --bg-page: #f3f8ff;
-  --bg-card: #ffffff;
-  --app-page-gradient: radial-gradient(circle at 15% 8%, rgba(31, 79, 155, 0.22), transparent 32%), linear-gradient(170deg, #eef5ff 0%, #f4f9ff 48%, #fbfdff 100%);
-}
-
-.theme-night {
-  --color-primary: #66d8a8;
-  --color-danger: #ff7272;
-  --color-white: #0f1628;
-
-  --text-primary: #eaf2ff;
-  --text-secondary: #9fb0cb;
-
-  --bg-page: #0f1628;
-  --bg-card: #1a243c;
-  --app-page-gradient: radial-gradient(circle at 15% 8%, rgba(102, 216, 168, 0.2), transparent 34%), linear-gradient(170deg, #0f1628 0%, #131e36 52%, #101a30 100%);
-}
-
-[data-theme="night"] {
-  color-scheme: dark;
+  --bg-page: #f5f7fc;
+  --bg-card: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 248, 255, 0.96) 100%);
+  --bg-soft: #eef2fb;
+  --line-soft: rgba(38, 51, 79, 0.1);
+  --shadow-card: 0 18rpx 42rpx rgba(68, 86, 130, 0.12);
+  --app-page-gradient: radial-gradient(circle at 14% 10%, rgba(109, 132, 190, 0.18), transparent 34%), linear-gradient(176deg, #f8f9fe 0%, #f1f4fb 46%, #fbfbfe 100%);
 }
 
 [data-theme="fresh"],

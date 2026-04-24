@@ -23,6 +23,9 @@ export function createApp() {
     onLoad() {
       loadAndApplyAppearance()
     },
+    onReady() {
+      loadAndApplyAppearance()
+    },
     onShow() {
       loadAndApplyAppearance()
     }

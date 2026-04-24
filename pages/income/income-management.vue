@@ -3,7 +3,7 @@
     <view class="hero-card">
       <text class="hero-kicker">收入项管理</text>
       <text class="hero-title">管理收入来源</text>
-      <text class="hero-desc">支持默认金额设置，删除时至少保留一项。</text>
+      <text class="hero-desc">维护收入项名称与类型，删除时至少保留一项。</text>
     </view>
 
     <view class="form-card">
@@ -19,11 +19,6 @@
         <picker :range="typeLabels" :value="selectedTypeIndex" @change="handleTypeChange">
           <view class="picker-value">{{ typeLabelMap[form.type] }}</view>
         </picker>
-      </view>
-
-      <view class="field">
-        <text class="label">默认金额</text>
-        <input v-model="form.defaultAmount" class="input" type="digit" placeholder="请输入默认金额" />
       </view>
 
       <view class="action-row">
@@ -43,7 +38,7 @@
           <view class="item-main">
             <text class="item-name">{{ item.name }}</text>
             <text class="item-meta">
-              {{ typeLabelMap[item.type] }} · 默认 {{ formatAmount(item.defaultAmount) }}
+              {{ typeLabelMap[item.type] }}
             </text>
           </view>
           <view class="item-actions">
@@ -79,8 +74,7 @@ const items = ref([])
 const editingId = ref("")
 const form = reactive({
   name: "",
-  type: "fixed",
-  defaultAmount: ""
+  type: "fixed"
 })
 
 const selectedTypeIndex = computed(() => typeLabels.indexOf(typeLabelMap[form.type] || "固定"))
@@ -96,24 +90,11 @@ function showToast(title) {
   })
 }
 
-function normalizeAmount(value) {
-  const amount = Number(value)
-  if (Number.isNaN(amount) || amount < 0) {
-    return null
-  }
-  return Number(amount.toFixed(2))
-}
-
-function formatAmount(value) {
-  return Number(value || 0).toFixed(2)
-}
-
 function normalizeItem(item) {
   return {
     id: item.id,
     name: item.name || "未命名收入项",
-    type: item.type || "fixed",
-    defaultAmount: Number(item.defaultAmount || 0)
+    type: item.type || "fixed"
   }
 }
 
@@ -134,7 +115,6 @@ function resetForm() {
   editingId.value = ""
   form.name = ""
   form.type = "fixed"
-  form.defaultAmount = ""
 }
 
 function handleTypeChange(event) {
@@ -164,12 +144,6 @@ function handleSubmit() {
     return
   }
 
-  const defaultAmount = normalizeAmount(form.defaultAmount || 0)
-  if (defaultAmount === null) {
-    showToast("默认金额格式不正确")
-    return
-  }
-
   const duplicated = items.value.some((item) => item.name === name && item.id !== editingId.value)
   if (duplicated) {
     showToast("收入项名称已存在")
@@ -178,8 +152,7 @@ function handleSubmit() {
 
   const nextItem = {
     name,
-    type: form.type,
-    defaultAmount
+    type: form.type
   }
 
   if (editingId.value) {
@@ -200,7 +173,6 @@ function startEdit(item) {
   editingId.value = item.id
   form.name = item.name
   form.type = item.type
-  form.defaultAmount = String(item.defaultAmount || 0)
 }
 
 function removeItem(item) {

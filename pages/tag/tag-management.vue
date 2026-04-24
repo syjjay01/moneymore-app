@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <view class="page">
     <view class="hero-card">
       <text class="hero-kicker">标签管理</text>
       <text class="hero-title">维护日常支出标签</text>
-      <text class="hero-desc">系统内置的 7 个标签不可删除，但可以修改名称、emoji 和颜色。</text>
+      <text class="hero-desc">系统内置的 7 个标签不可删除，但可修改名称、emoji 和颜色。</text>
     </view>
 
     <view class="form-card">
@@ -68,13 +68,7 @@
           </view>
           <view class="item-actions">
             <text class="link-btn" @click="startEdit(item)">编辑</text>
-            <text
-              class="danger-link"
-              :class="{ disabled: item.isSystem }"
-              @click="removeTag(item)"
-            >
-              删除
-            </text>
+            <text class="danger-link" :class="{ disabled: item.isSystem }" @click="removeTag(item)">删除</text>
           </view>
         </view>
       </view>
@@ -89,9 +83,20 @@ import { onShow } from "@dcloudio/uni-app"
 import { getCurrentUser, getCurrentUserData, updateUserData } from "../../utils/storage"
 
 const emojiOptions = ["🍜", "🥬", "🎮", "🍪", "🧻", "👟", "🚌", "☕", "🐾", "🏃", "🛒", "🎁", "📚", "🏥", "🏠"]
-const colorOptions = ["#2B7A4B", "#E67E22", "#E74C3C", "#3498DB", "#8E44AD", "#16A085", "#D35400", "#2C3E50"]
+const colorOptions = ["#F59E0B", "#10B981", "#8B5CF6", "#F97316", "#06B6D4", "#EC4899", "#3B82F6", "#64748B"]
 const systemTagIds = ["tag_food", "tag_grocery", "tag_fun", "tag_snack", "tag_household", "tag_clothes", "tag_transport"]
 const uncategorizedTagId = "tag_uncategorized"
+
+const SYSTEM_TAG_META = {
+  tag_food: { name: "吃饭", emoji: "🍜", color: "#F59E0B" },
+  tag_grocery: { name: "买菜", emoji: "🥬", color: "#10B981" },
+  tag_fun: { name: "娱乐", emoji: "🎮", color: "#8B5CF6" },
+  tag_snack: { name: "零食", emoji: "🍪", color: "#F97316" },
+  tag_household: { name: "家庭耗材", emoji: "🧻", color: "#06B6D4" },
+  tag_clothes: { name: "衣鞋类", emoji: "👟", color: "#EC4899" },
+  tag_transport: { name: "出行类", emoji: "🚌", color: "#3B82F6" },
+  tag_uncategorized: { name: "未分类", emoji: "📦", color: "#64748B" }
+}
 
 const currentUser = ref("")
 const tags = ref([])
@@ -107,18 +112,32 @@ function createId(prefix) {
 }
 
 function showToast(title) {
-  uni.showToast({
-    title,
-    icon: "none"
-  })
+  uni.showToast({ title, icon: "none" })
+}
+
+function inferTagMetaByName(name = "") {
+  const value = String(name || "")
+  if (!value) return null
+  if (value.includes("吃") || value.includes("餐")) return SYSTEM_TAG_META.tag_food
+  if (value.includes("菜")) return SYSTEM_TAG_META.tag_grocery
+  if (value.includes("娱乐") || value.includes("游戏")) return SYSTEM_TAG_META.tag_fun
+  if (value.includes("零食")) return SYSTEM_TAG_META.tag_snack
+  if (value.includes("耗材") || value.includes("家庭")) return SYSTEM_TAG_META.tag_household
+  if (value.includes("衣") || value.includes("鞋")) return SYSTEM_TAG_META.tag_clothes
+  if (value.includes("出行") || value.includes("交通")) return SYSTEM_TAG_META.tag_transport
+  if (value.includes("未分类")) return SYSTEM_TAG_META.tag_uncategorized
+  return null
 }
 
 function normalizeTag(item) {
+  const metaById = SYSTEM_TAG_META[item?.id]
+  const metaByName = inferTagMetaByName(item?.name)
+  const meta = metaById || metaByName
   return {
     id: item.id,
-    name: item.name || "未命名标签",
-    emoji: item.emoji || "🏷️",
-    color: item.color || "#2B7A4B",
+    name: item.name || meta?.name || "未命名标签",
+    emoji: item.emoji || meta?.emoji || "🏷️",
+    color: item.color || meta?.color || "#2B7A4B",
     isSystem: typeof item.isSystem === "boolean" ? item.isSystem : systemTagIds.includes(item.id)
   }
 }
@@ -133,9 +152,9 @@ function ensureUncategorized(list) {
     ...list,
     {
       id: uncategorizedTagId,
-      name: "未分类",
-      emoji: "📦",
-      color: "#7F8C8D",
+      name: SYSTEM_TAG_META.tag_uncategorized.name,
+      emoji: SYSTEM_TAG_META.tag_uncategorized.emoji,
+      color: SYSTEM_TAG_META.tag_uncategorized.color,
       isSystem: true
     }
   ]
@@ -144,9 +163,7 @@ function ensureUncategorized(list) {
 function loadTags() {
   currentUser.value = getCurrentUser() || ""
   if (!currentUser.value) {
-    uni.reLaunch({
-      url: "/pages/login/login"
-    })
+    uni.reLaunch({ url: "/pages/login/login" })
     return
   }
 
@@ -171,10 +188,7 @@ function persist(updater, successText) {
 
   loadTags()
   resetForm()
-  uni.showToast({
-    title: successText,
-    icon: "success"
-  })
+  uni.showToast({ title: successText, icon: "success" })
 }
 
 function handleSubmit() {
@@ -252,8 +266,9 @@ function removeTag(item) {
 
       persist(
         (userData) => {
-          const nextTags = ensureUncategorized((userData.expenseTags || []).map(normalizeTag))
-            .filter((tag) => tag.id !== item.id)
+          const nextTags = ensureUncategorized((userData.expenseTags || []).map(normalizeTag)).filter(
+            (tag) => tag.id !== item.id
+          )
 
           const nextTransactions = (userData.transactions || []).map((transaction) => {
             if (transaction.tagId !== item.id) {

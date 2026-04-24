@@ -114,6 +114,10 @@
         </view>
       </view>
     </view>
+
+    <view class="version-row">
+      <text class="version-text">版本号 1.0.0</text>
+    </view>
   </view>
 </template>
 
@@ -156,7 +160,7 @@ function syncCurrentUser() {
   currentUser.value = getCurrentUser() || ""
   if (!currentUser.value) {
     uni.reLaunch({
-      url: getUserList().length ? "/pages/login/login" : "/pages/login/register"
+      url: getUserList().length ? "/pages/login/login" : "/pages/login/login?tab=register"
     })
   }
 }
@@ -216,7 +220,7 @@ function handleDeleteAccount() {
 
       setTimeout(() => {
         uni.reLaunch({
-          url: hasUsers ? "/pages/login/login" : "/pages/login/register"
+          url: hasUsers ? "/pages/login/login" : "/pages/login/login?tab=register"
         })
       }, 300)
     }
@@ -476,5 +480,18 @@ function handleChangePassword() {
 
 .modal-actions button {
   flex: 1;
+}
+
+.version-row {
+  margin-top: 28rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+
+.version-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  opacity: 0.85;
 }
 </style>

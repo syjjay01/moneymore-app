@@ -86,6 +86,36 @@
       <text class="insight-text">{{ summaryText }}</text>
     </view>
 
+    <view class="total-balance-card">
+      <view class="card-head">
+        <view>
+          <text class="card-title">累计结余总额</text>
+          <text class="card-desc">统计截止当前所选月份，含基础存款。</text>
+        </view>
+      </view>
+
+      <view class="balance-row">
+        <view class="balance-main">
+          <text class="balance-label">当前总额</text>
+          <text class="balance-value">¥{{ formatAmount(totalBalance) }}</text>
+          <text class="balance-subtext">累计结余金额 ¥{{ formatAmount(cumulativeBalance) }}</text>
+        </view>
+        <view class="balance-side">
+          <text class="balance-side-label">基础存款</text>
+          <view class="balance-input-box">
+            <text class="balance-currency">¥</text>
+            <input
+              v-model="baseSavingsInput"
+              class="balance-input"
+              type="digit"
+              placeholder="0"
+              @blur="handleBaseSavingsBlur"
+            />
+          </view>
+        </view>
+      </view>
+    </view>
+
     <view v-if="detailPopup.visible" class="modal-mask" @click="closeDetailPopup">
       <view class="modal-card" @click.stop>
         <view class="modal-head">
@@ -131,7 +161,7 @@ import {
 import { CanvasRenderer } from "echarts/renderers"
 import { onShow } from "@dcloudio/uni-app"
 import { useBudgetStore } from "../../stores/budget"
-import { getCurrentUser, getCurrentUserData, setStorageSync } from "../../utils/storage"
+import { getCurrentUser, getCurrentUserData, saveCurrentUserSettings, setStorageSync } from "../../utils/storage"
 
 echarts.use([
   PieChart,
@@ -154,6 +184,7 @@ const transactions = ref([])
 const expenseTags = ref([])
 const incomeItems = ref([])
 const fixedExpenseItems = ref([])
+const baseSavingsInput = ref("0")
 const detailPopup = reactive({
   visible: false,
   title: "",
@@ -167,6 +198,47 @@ const detailPopup = reactive({
 })
 
 const categoryColorFallback = ["#2B7A4B", "#E67E22", "#E74C3C", "#3498DB", "#8E44AD", "#16A085", "#D35400", "#2C3E50"]
+
+function normalizeColorValue(color = "") {
+  return String(color || "").trim().toLowerCase()
+}
+
+function buildAutoColor(index) {
+  const hue = (index * 47) % 360
+  return `hsl(${hue}, 68%, 52%)`
+}
+
+function pickDistinctColor(preferredColor, usedColors, index) {
+  const preferred = normalizeColorValue(preferredColor)
+  if (preferred && !usedColors.has(preferred)) {
+    usedColors.add(preferred)
+    return preferredColor
+  }
+
+  for (let i = 0; i < categoryColorFallback.length; i += 1) {
+    const candidate = categoryColorFallback[(index + i) % categoryColorFallback.length]
+    const normalized = normalizeColorValue(candidate)
+    if (!usedColors.has(normalized)) {
+      usedColors.add(normalized)
+      return candidate
+    }
+  }
+
+  let offset = 0
+  while (offset < 360) {
+    const generated = buildAutoColor(index + offset)
+    const normalized = normalizeColorValue(generated)
+    if (!usedColors.has(normalized)) {
+      usedColors.add(normalized)
+      return generated
+    }
+    offset += 1
+  }
+
+  const fallback = buildAutoColor(index)
+  usedColors.add(normalizeColorValue(fallback))
+  return fallback
+}
 
 const expenseTagMap = computed(() => {
   return expenseTags.value.reduce((acc, item) => {
@@ -220,6 +292,30 @@ const monthlyExpense = computed(() => {
 })
 
 const monthlyBalance = computed(() => Number((monthlyIncome.value - monthlyExpense.value).toFixed(2)))
+const cumulativeIncome = computed(() => {
+  return transactions.value.reduce((total, item) => {
+    const monthKey = String(item.date || "").slice(0, 7)
+    if (!monthKey || monthKey > selectedMonth.value || item.type !== "income") {
+      return total
+    }
+    return total + Number(item.amount || 0)
+  }, 0)
+})
+const cumulativeExpense = computed(() => {
+  return transactions.value.reduce((total, item) => {
+    const monthKey = String(item.date || "").slice(0, 7)
+    if (!monthKey || monthKey > selectedMonth.value || item.type !== "expense") {
+      return total
+    }
+    return total + Number(item.amount || 0)
+  }, 0)
+})
+const baseSavings = computed(() => {
+  const value = Number(baseSavingsInput.value || 0)
+  return Number.isNaN(value) ? 0 : value
+})
+const cumulativeBalance = computed(() => Number((cumulativeIncome.value - cumulativeExpense.value).toFixed(2)))
+const totalBalance = computed(() => Number((cumulativeBalance.value + baseSavings.value).toFixed(2)))
 const monthlyBudget = computed(() => Number(budgetStore.monthlyBudget || 0))
 const isOverBudget = computed(() => monthlyExpense.value > monthlyBudget.value)
 const overBudgetAmount = computed(() => Math.max(0, Number((monthlyExpense.value - monthlyBudget.value).toFixed(2))))
@@ -282,12 +378,13 @@ const expenseCategoryStats = computed(() => {
     })
   })
 
+  const usedColors = new Set()
   return Object.values(map)
     .filter((item) => Number(item.value || 0) > 0)
     .sort((a, b) => b.value - a.value)
     .map((item, index) => ({
       ...item,
-      color: item.color || categoryColorFallback[index % categoryColorFallback.length]
+      color: pickDistinctColor(item.color, usedColors, index)
     }))
 })
 
@@ -566,6 +663,16 @@ function handleMonthPick(event) {
   selectedMonth.value = value
 }
 
+function handleBaseSavingsBlur() {
+  const raw = String(baseSavingsInput.value || "").trim()
+  const parsed = Number(raw || 0)
+  const normalized = Number.isNaN(parsed) || parsed < 0 ? 0 : Number(parsed.toFixed(2))
+  baseSavingsInput.value = String(normalized)
+  saveCurrentUserSettings({
+    baseSavings: normalized
+  })
+}
+
 function backToCurrentMonth() {
   selectedMonth.value = getCurrentMonth()
 }
@@ -584,6 +691,7 @@ function loadStatisticsData() {
   expenseTags.value = userData?.expenseTags || []
   incomeItems.value = userData?.incomeItems || []
   fixedExpenseItems.value = userData?.fixedExpenseItems || []
+  baseSavingsInput.value = String(Number(userData?.settings?.baseSavings ?? userData?.settings?.base_savings ?? 0) || 0)
 }
 
 function handlePieClick(params) {
@@ -655,6 +763,7 @@ onShow(() => {
 .budget-card,
 .chart-card,
 .insight-card,
+.total-balance-card,
 .modal-card {
   padding: 28rpx;
   border-radius: 28rpx;
@@ -739,7 +848,8 @@ onShow(() => {
 .summary-card,
 .budget-card,
 .chart-card,
-.insight-card {
+.insight-card,
+.total-balance-card {
   margin-top: 24rpx;
 }
 
@@ -825,6 +935,70 @@ onShow(() => {
 
 .insight-text {
   margin-top: 14rpx;
+  color: var(--text-primary);
+}
+
+.balance-row {
+  margin-top: 18rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.balance-main {
+  flex: 1;
+}
+
+.balance-label,
+.balance-side-label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.balance-value {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.balance-subtext {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.balance-side {
+  width: 240rpx;
+}
+
+.balance-input-box {
+  margin-top: 10rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 76rpx;
+  padding: 0 16rpx;
+  border-radius: 18rpx;
+  background: #f5f8fc;
+  border: 1rpx solid rgba(31, 41, 51, 0.08);
+  box-sizing: border-box;
+}
+
+.balance-currency {
+  color: var(--color-primary);
+  font-size: 26rpx;
+}
+
+.balance-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  font-size: 28rpx;
   color: var(--text-primary);
 }
 

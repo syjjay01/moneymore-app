@@ -343,7 +343,7 @@ function handleChangePassword() {
 .outline-btn {
   background: transparent;
   color: var(--color-primary);
-  border: 2rpx solid rgba(43, 122, 75, 0.18);
+  border: 2rpx solid var(--line-soft);
 }
 
 .danger-btn {
@@ -388,7 +388,8 @@ function handleChangePassword() {
   gap: 18rpx;
   padding: 24rpx 22rpx;
   border-radius: 22rpx;
-  background: rgba(31, 122, 77, 0.06);
+  background: var(--bg-soft);
+  border: 1rpx solid var(--line-soft);
 }
 
 .nav-title {
@@ -465,9 +466,9 @@ function handleChangePassword() {
 .input {
   height: 92rpx;
   padding: 0 24rpx;
-  border: 2rpx solid rgba(43, 122, 75, 0.14);
+  border: 2rpx solid var(--line-soft);
   border-radius: 20rpx;
-  background: #fff;
+  background: var(--bg-card);
   font-size: 30rpx;
   color: var(--text-primary);
 }

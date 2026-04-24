@@ -3,12 +3,12 @@
     <view class="hero-card">
       <view class="month-switcher">
         <text class="switch-arrow" @click="changeMonth(-1)">‹</text>
-        <picker mode="date" fields="month" :value="`${selectedMonth}-01`" class="month-picker" @change="handleMonthPick">
+        <view class="month-picker" @click="openMonthPanel">
           <view class="month-center">
             <text class="hero-kicker">月度统计</text>
             <text class="hero-title">{{ monthLabel }}</text>
           </view>
-        </picker>
+        </view>
         <text class="switch-arrow" @click="changeMonth(1)">›</text>
       </view>
       <view v-if="!isCurrentMonth" class="back-btn" @click="backToCurrentMonth">回到当月</view>
@@ -143,6 +143,29 @@
         <view v-else class="empty-state">该分类下暂无支出明细。</view>
       </view>
     </view>
+
+    <view v-if="monthPanel.visible" class="month-panel-mask" @click="closeMonthPanel">
+      <view class="month-panel" @click.stop>
+        <view class="month-panel-head">
+          <text class="month-panel-btn" @click="closeMonthPanel">取消</text>
+          <text class="month-panel-title">选择年月</text>
+          <text class="month-panel-btn confirm" @click="confirmMonthPanel">确定</text>
+        </view>
+        <picker-view
+          class="month-picker-view"
+          indicator-style="height: 50px;"
+          :value="[monthPanel.yearIndex, monthPanel.monthIndex]"
+          @change="handleMonthPanelChange"
+        >
+          <picker-view-column>
+            <view v-for="year in monthYears" :key="`y-${year}`" class="month-picker-cell">{{ year }}年</view>
+          </picker-view-column>
+          <picker-view-column>
+            <view v-for="month in monthNumbers" :key="`m-${month}`" class="month-picker-cell">{{ month }}月</view>
+          </picker-view-column>
+        </picker-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -185,6 +208,13 @@ const expenseTags = ref([])
 const incomeItems = ref([])
 const fixedExpenseItems = ref([])
 const baseSavingsInput = ref("0")
+const monthYears = Array.from({ length: 71 }, (_, index) => 1990 + index)
+const monthNumbers = Array.from({ length: 12 }, (_, index) => index + 1)
+const monthPanel = reactive({
+  visible: false,
+  yearIndex: 0,
+  monthIndex: 0
+})
 const detailPopup = reactive({
   visible: false,
   title: "",
@@ -651,16 +681,54 @@ function shiftMonth(monthKey, offset) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
 }
 
-function changeMonth(offset) {
-  selectedMonth.value = shiftMonth(selectedMonth.value, offset)
+function normalizeYearMonth(year, month) {
+  return `${year}-${String(month).padStart(2, "0")}`
 }
 
-function handleMonthPick(event) {
-  const value = String(event.detail.value || "").slice(0, 7)
-  if (!value) {
+function syncMonthPanelByValue(monthValue) {
+  const raw = String(monthValue || selectedMonth.value || getCurrentMonth()).trim()
+  const matched = raw.match(/(\d{4})\D*(\d{1,2})/)
+  const fallback = getCurrentMonth().match(/(\d{4})-(\d{2})/)
+  const minYear = monthYears[0]
+  const maxYear = monthYears[monthYears.length - 1]
+  const rawYear = Number(matched?.[1] || fallback?.[1] || new Date().getFullYear())
+  const year = Math.min(maxYear, Math.max(minYear, rawYear))
+  const month = Number(matched?.[2] || fallback?.[2] || new Date().getMonth() + 1)
+  const yearIndex = monthYears.findIndex((item) => item === year)
+  monthPanel.yearIndex = yearIndex > -1 ? yearIndex : monthYears.findIndex((item) => item === new Date().getFullYear())
+  monthPanel.monthIndex = month > 0 && month <= 12 ? month - 1 : new Date().getMonth()
+}
+
+function openMonthPanel() {
+  if (!selectedMonth.value) {
+    selectedMonth.value = getCurrentMonth()
+  }
+  syncMonthPanelByValue(selectedMonth.value || getCurrentMonth())
+  monthPanel.visible = true
+}
+
+function closeMonthPanel() {
+  monthPanel.visible = false
+}
+
+function handleMonthPanelChange(event) {
+  const value = Array.isArray(event?.detail?.value) ? event.detail.value : [monthPanel.yearIndex, monthPanel.monthIndex]
+  monthPanel.yearIndex = Number(value[0] || 0)
+  monthPanel.monthIndex = Number(value[1] || 0)
+}
+
+function confirmMonthPanel() {
+  const year = monthYears[monthPanel.yearIndex]
+  const month = monthPanel.monthIndex + 1
+  if (!year || month < 1 || month > 12) {
     return
   }
-  selectedMonth.value = value
+  selectedMonth.value = normalizeYearMonth(year, month)
+  monthPanel.visible = false
+}
+
+function changeMonth(offset) {
+  selectedMonth.value = shiftMonth(selectedMonth.value, offset)
 }
 
 function handleBaseSavingsBlur() {
@@ -793,9 +861,63 @@ onShow(() => {
   line-height: 60rpx;
   text-align: center;
   border-radius: 18rpx;
-  background: #eef5f0;
+  background: var(--bg-soft);
+  border: 1rpx solid var(--line-soft);
   color: var(--color-primary);
   font-size: 42rpx;
+}
+
+.month-panel-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 19, 32, 0.35);
+  display: flex;
+  align-items: flex-end;
+  z-index: 60;
+}
+
+.month-panel {
+  width: 100%;
+  background: var(--bg-card);
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid var(--line-soft);
+}
+
+.month-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.month-panel-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.month-panel-btn {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  padding: 8rpx 12rpx;
+}
+
+.month-panel-btn.confirm {
+  color: var(--color-primary);
+}
+
+.month-picker-view {
+  margin-top: 16rpx;
+  width: 100%;
+  height: 250px;
+}
+
+.month-picker-cell {
+  height: 50px;
+  line-height: 50px;
+  text-align: center;
+  font-size: 30rpx;
+  color: var(--text-primary);
 }
 
 .hero-kicker {

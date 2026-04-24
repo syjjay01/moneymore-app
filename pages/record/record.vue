@@ -7,18 +7,12 @@
     <view class="top-card">
       <view class="month-row">
         <text class="arrow" @click="changeMonth(-1)">‹</text>
-        <picker
-          mode="date"
-          fields="month"
-          :value="`${selectedMonth}-01`"
-          @change="handleMonthPick"
-          class="month-picker"
-        >
+        <view class="month-picker" @click="openMonthPanel">
           <view class="month-center">
             <text class="month-label">{{ monthLabel }}</text>
             <text class="month-tip">点击可切换月份</text>
           </view>
-        </picker>
+        </view>
         <text class="arrow" @click="changeMonth(1)">›</text>
       </view>
 
@@ -265,6 +259,29 @@
         <button class="primary-btn" @click="saveAddItemModal">{{ isRestoreMode ? "添加项目" : "保存项目" }}</button>
       </view>
     </view>
+
+    <view v-if="monthPanel.visible" class="month-panel-mask" @click="closeMonthPanel">
+      <view class="month-panel" @click.stop>
+        <view class="month-panel-head">
+          <text class="month-panel-btn" @click="closeMonthPanel">取消</text>
+          <text class="month-panel-title">选择年月</text>
+          <text class="month-panel-btn confirm" @click="confirmMonthPanel">确定</text>
+        </view>
+        <picker-view
+          class="month-picker-view"
+          indicator-style="height: 50px;"
+          :value="[monthPanel.yearIndex, monthPanel.monthIndex]"
+          @change="handleMonthPanelChange"
+        >
+          <picker-view-column>
+            <view v-for="year in monthYears" :key="`y-${year}`" class="month-picker-cell">{{ year }}年</view>
+          </picker-view-column>
+          <picker-view-column>
+            <view v-for="month in monthNumbers" :key="`m-${month}`" class="month-picker-cell">{{ month }}月</view>
+          </picker-view-column>
+        </picker-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -335,6 +352,13 @@ const transactions = ref([])
 const incomeAmounts = reactive({})
 const fixedExpenseAmounts = reactive({})
 const recordTabCustom = ref(createDefaultRecordTabCustom())
+const monthYears = Array.from({ length: 71 }, (_, index) => 1990 + index)
+const monthNumbers = Array.from({ length: 12 }, (_, index) => index + 1)
+const monthPanel = reactive({
+  visible: false,
+  yearIndex: 0,
+  monthIndex: 0
+})
 
 const newFlow = reactive({
   visible: false,
@@ -509,6 +533,64 @@ function getCurrentMonth() {
 function getCurrentDate() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+}
+
+function normalizeYearMonth(year, month) {
+  return `${year}-${String(month).padStart(2, "0")}`
+}
+
+function parseYearMonth(value) {
+  const raw = String(value || "").trim()
+  const matched = raw.match(/(\d{4})\D*(\d{1,2})/)
+  if (!matched) {
+    return null
+  }
+  const year = Number(matched[1])
+  const month = Number(matched[2])
+  if (!year || month < 1 || month > 12) {
+    return null
+  }
+  return { year, month }
+}
+
+function syncMonthPanelByValue(monthValue) {
+  const parsed = parseYearMonth(monthValue || selectedMonth.value)
+  const fallback = parseYearMonth(getCurrentMonth())
+  const minYear = monthYears[0]
+  const maxYear = monthYears[monthYears.length - 1]
+  const rawYear = parsed?.year || fallback?.year || new Date().getFullYear()
+  const year = Math.min(maxYear, Math.max(minYear, rawYear))
+  const month = parsed?.month || fallback?.month || new Date().getMonth() + 1
+  const yearIndex = monthYears.findIndex((item) => item === year)
+  monthPanel.yearIndex = yearIndex > -1 ? yearIndex : monthYears.findIndex((item) => item === new Date().getFullYear())
+  monthPanel.monthIndex = month > 0 && month <= 12 ? month - 1 : new Date().getMonth()
+}
+
+function openMonthPanel() {
+  syncMonthPanelByValue(selectedMonth.value)
+  monthPanel.visible = true
+}
+
+function closeMonthPanel() {
+  monthPanel.visible = false
+}
+
+function handleMonthPanelChange(event) {
+  const value = Array.isArray(event?.detail?.value) ? event.detail.value : [monthPanel.yearIndex, monthPanel.monthIndex]
+  monthPanel.yearIndex = Number(value[0] || 0)
+  monthPanel.monthIndex = Number(value[1] || 0)
+}
+
+function confirmMonthPanel() {
+  const year = monthYears[monthPanel.yearIndex]
+  const month = monthPanel.monthIndex + 1
+  if (!year || month < 1 || month > 12) {
+    return
+  }
+  selectedMonth.value = normalizeYearMonth(year, month)
+  monthPanel.visible = false
+  updateSelectedDayForMonth()
+  syncAmountInputs()
 }
 
 function formatAmount(value) {
@@ -831,16 +913,6 @@ function refreshDayScrollPosition() {
   nextTick(() => {
     dayScrollIntoView.value = target
   })
-}
-
-function handleMonthPick(event) {
-  const monthValue = String(event.detail.value || "").slice(0, 7)
-  if (!monthValue) {
-    return
-  }
-  selectedMonth.value = monthValue
-  updateSelectedDayForMonth()
-  syncAmountInputs()
 }
 
 function applyRecordFilter() {
@@ -1918,8 +1990,9 @@ onHide(() => {
   text-align: center;
   line-height: 56rpx;
   font-size: 40rpx;
-  color: #1f7a4d;
-  background: #e7f3ec;
+  color: var(--color-primary);
+  background: var(--bg-soft);
+  border: 1rpx solid var(--line-soft);
 }
 
 .month-center {
@@ -1944,6 +2017,59 @@ onHide(() => {
   color: #6f8191;
 }
 
+.month-panel-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 19, 32, 0.35);
+  display: flex;
+  align-items: flex-end;
+  z-index: 60;
+}
+
+.month-panel {
+  width: 100%;
+  background: var(--bg-card);
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid var(--line-soft);
+}
+
+.month-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.month-panel-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.month-panel-btn {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  padding: 8rpx 12rpx;
+}
+
+.month-panel-btn.confirm {
+  color: var(--color-primary);
+}
+
+.month-picker-view {
+  margin-top: 16rpx;
+  width: 100%;
+  height: 250px;
+}
+
+.month-picker-cell {
+  height: 50px;
+  line-height: 50px;
+  text-align: center;
+  font-size: 30rpx;
+  color: var(--text-primary);
+}
+
 .back-btn {
   margin: 14rpx auto 0;
   display: flex;
@@ -1955,7 +2081,7 @@ onHide(() => {
   height: 56rpx;
   line-height: 56rpx;
   border-radius: 999rpx;
-  background: #1f7a4d;
+  background: var(--color-primary);
   color: #fff;
   white-space: nowrap !important;
 }
@@ -2006,14 +2132,14 @@ onHide(() => {
 }
 
 .manage-link {
-  color: #1f7a4d;
+  color: var(--color-primary);
   font-size: 24rpx;
 }
 
 .mini-primary {
   margin: 0;
   border-radius: 999rpx;
-  background: #1f7a4d;
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -2071,9 +2197,9 @@ onHide(() => {
   line-height: 52rpx;
   box-sizing: border-box;
   border-radius: 999rpx;
-  color: #1f7a4d;
-  background: rgba(31, 122, 77, 0.06);
-  border: 1rpx solid rgba(31, 122, 77, 0.42);
+  color: var(--color-primary);
+  background: var(--bg-soft);
+  border: 1rpx solid var(--line-soft);
   font-size: 22rpx;
 }
 
